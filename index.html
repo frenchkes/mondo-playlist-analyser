@@ -70,9 +70,58 @@ function parseCSV(text){let rows=[],row=[],cell='',quoted=false;for(let i=0;i<te
 $('csv').onchange=async e=>{let f=e.target.files[0];if(!f)return;try{let rows=parseCSV(await f.text()),head=rows.shift().map(x=>x.replace(/^\uFEFF/,'').trim().toLowerCase()),idx=(...names)=>{for(let n of names){let i=head.indexOf(n);if(i>=0)return i;}return -1;};let ti=idx('track name','title','track'),ai=idx('artist name(s)','artist','artists','artist names'),bi=idx('bpm','tempo'),ki=idx('camelot','key'),ei=idx('energy'),di=idx('track duration (ms)','duration (ms)','duration'),ui=idx('track uri','uri'),ii=idx('isrc');let imported=0;rows.forEach(p=>{let title=p[ti>=0?ti:0]||'',artist=p[ai>=0?ai:1]||'';if(!title.trim())return;let uri=p[ui]||'',duration=Number(p[di]);tracks.push({title:title.trim(),artist:artist.trim(),bpm:bi>=0?(Number(p[bi])||null):null,key:keyNorm(ki>=0?p[ki]:''),energy:ei>=0?(Number(p[ei])||5):5,duration:Number.isFinite(duration)?duration:null,uri,spotifyId:uri.split(':').pop(),isrc:ii>=0?p[ii]||'':''});imported++;});render();$('status').textContent='Imported '+imported+' tracks from '+f.name+'. Spotify CSVs do not include BPM or Camelot key.';}catch(err){$('status').textContent='Could not read CSV: '+err.message;}e.target.value='';};
 function keyScore(a,b){let x=a.key,y=b.key;if(!x||!y)return 1.8;if(x===y)return 0;if(!/^(1[0-2]|[1-9])[AB]$/.test(x)||!/^(1[0-2]|[1-9])[AB]$/.test(y))return 2.2;let na=+x.slice(0,-1),nb=+y.slice(0,-1),same=x.slice(-1)===y.slice(-1);if(na===nb&& !same)return .45;if(same&&(Math.abs(na-nb)===1||Math.abs(na-nb)===11))return .25;return 2.4;}
 function bpmScore(a,b){if(!a.bpm||!b.bpm)return 1.4;let d=Math.abs(a.bpm-b.bpm);return d<=2?d*.12:d<=5?.5+(d-2)*.25:1.25+(d-5)*.22;}
-function optimise(){if(tracks.length<2){$('status').textContent='Add at least two tracks first.';return;}let pool=[...tracks],style=$('style').value,target=$('target').value;let desired=style==='acid'?8:style==='uplifting'?7:style==='warmup'?6:7;let seq=[];let first=pool.reduce((best,t)=>{let score=Math.abs(t.energy-(style==='warmup'?3:4));return !best||score<best.s?{t,s:score}:best},null).t;pool.splice(pool.indexOf(first),1);seq.push(first);
-while(pool.length){let prev=seq.at(-1),best=-1,bestScore=Infinity;pool.forEach((t,i)=>{let energyPenalty=Math.abs(t.energy-prev.energy)*.42;let progression=style==='warmup'?Math.max(0,prev.energy-t.energy)*.7:style==='acid'?Math.max(0,prev.energy-t.energy)*.45:style==='uplifting'?Math.abs((t.energy-prev.energy)-.45)*.35:Math.abs(t.energy-prev.energy)*.22;let score=keyScore(prev,t)+bpmScore(prev,t)+energyPenalty+progression;if(target!=='any'){let [lo,hi]=target.replace('–','-').split('-').map(Number);if(t.bpm&&(t.bpm<lo||t.bpm>hi))score+=4;}if(score<bestScore){bestScore=score;best=i;}});seq.push(pool.splice(best,1)[0]);}
-tracks=seq;render();$('orderlabel').textContent='OPTIMISED ORDER';$('status').textContent='Suggested sequence generated. This is a metadata-based guide — audition transitions and adjust by ear.';}
-$('optimise').onclick=optimise;
+function targetEnergyAt(position,total,style){
+let p=total<=1?0:position/(total-1);
+if(style==='warmup')return 2+5*p;
+if(style==='uplifting')return 3+6*p;
+if(style==='acid')return 4+6*p;
+return 3+5*p;
+}
+function transitionCost(a,b,position,total,style){
+let key=keyScore(a,b);
+let bpm=bpmScore(a,b);
+let jump=Math.abs((Number(b.energy)||5)-(Number(a.energy)||5));
+let target=targetEnergyAt(position,total,style);
+let energyFit=Math.abs((Number(b.energy)||5)-target);
+let score=key*1.25+bpm*1.55+jump*.48+energyFit*.72;
+// Avoid abrupt energy drops, but allow small breathers in a set.
+let drop=(Number(a.energy)||5)-(Number(b.energy)||5);
+if(drop>1.5)score+=(drop-1.5)*.55;
+if(drop< -2.5)score+=(-drop-2.5)*.18;
+return score;
+}
+function optimise(){
+if(tracks.length<2){$('status').textContent='Add at least two tracks first.';return;}
+let source=[...tracks],style=$('style').value,target=$('target').value,total=source.length;
+let [lo,hi]=target==='any'?[0,999]:target.replace('–','-').split('-').map(Number);
+let beamWidth=100,beam=[];
+source.forEach((t,i)=>{
+let energy=Number(t.energy)||5;
+let startCost=Math.abs(energy-targetEnergyAt(0,total,style))*.85;
+let bpm=Number(t.bpm)||0;
+if(bpm&&target!=='any'&&(bpm<lo||bpm>hi))startCost+=3;
+beam.push({path:[i],used:new Set([i]),score:startCost});
+});
+beam.sort((a,b)=>a.score-b.score);beam=beam.slice(0,beamWidth);
+for(let pos=1;pos<total;pos++){
+let next=[];
+for(let state of beam){
+let prev=source[state.path[state.path.length-1]];
+for(let i=0;i<total;i++){
+if(state.used.has(i))continue;
+let t=source[i],cost=transitionCost(prev,t,pos,total,style);
+let bpm=Number(t.bpm)||0;
+if(bpm&&target!=='any'&&(bpm<lo||bpm>hi))cost+=3;
+let used=new Set(state.used);used.add(i);
+next.push({path:[...state.path,i],used,score:state.score+cost});
+}
+}
+next.sort((a,b)=>a.score-b.score);beam=next.slice(0,beamWidth);
+}
+let best=beam[0];
+tracks=best.path.map(i=>source[i]);
+render();$('orderlabel').textContent='OPTIMISED ORDER';
+$('status').textContent='Best-fit running order generated using Camelot compatibility, BPM closeness and a style-shaped energy journey. Check the energy ratings first — imported Spotify CSVs do not contain track energy.';
+}$('optimise').onclick=optimise;
 $('export').onclick=()=>{if(!tracks.length){$('status').textContent='Nothing to export yet.';return;}let rows=[['Position','Title','Artist','BPM','Camelot','Energy'],...tracks.map((t,i)=>[i+1,t.title,t.artist,t.bpm||'',t.key,t.energy])];let csv=rows.map(r=>r.map(v=>'"'+String(v??'').replace(/"/g,'""')+'"').join(',')).join('\n');let a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download='MONDO_optimised_set.csv';a.click();URL.revokeObjectURL(a.href);};
 </script></body></html>
