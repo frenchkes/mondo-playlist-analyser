@@ -40,12 +40,12 @@ footer{color:#7f878f;font-size:11px;text-align:center;margin-top:24px}
 <p class="small">CSV columns supported: title, artist, bpm, key (Camelot such as 8A), energy. You can also edit every value after import.</p>
 </div>
 <div class="card">
-<h2>02 / Automatic DJ analysis</h2>
-<p class="small">Connect Musicae through RapidAPI. Your key is saved only in this browser on this device; it is not written into the public website code.</p>
-<label>RapidAPI key</label><input id="apiKey" type="password" autocomplete="off" placeholder="Paste your X-RapidAPI-Key here">
-<div class="row" style="margin-top:10px"><button id="saveKey">Save key on this device</button><button class="secondary" id="clearKey">Forget key</button></div>
-<div class="row" style="margin-top:10px"><button id="analyse">Find BPM, Camelot & energy automatically</button></div>
-<p class="small" id="apiStatus">Import your Spotify CSV, save your key, then analyse. Up to 5 tracks are checked per API request.</p>
+<h2>02 / Free BPM & Camelot analysis</h2>
+<p class="small">MONDO uses TuneBad's free playlist analyser for BPM, musical key and Camelot. No paid API key or subscription.</p>
+<div class="row" style="margin-top:10px"><button id="openTuneBad">Open TuneBad playlist analyser</button><button class="secondary" id="copySpotify">Copy playlist link</button></div>
+<p class="small" style="margin-top:10px">In TuneBad, paste your public Spotify playlist link, tap <b>Analyze playlist</b>, then choose <b>Export CSV</b>. Return here and import that CSV above. MONDO will read TuneBad's BPM and Camelot columns automatically.</p>
+<div class="notice">Important: TuneBad currently provides BPM and key/Camelot, but not a measured energy score. MONDO leaves Energy at 5 until you rate it; it won't pretend that tempo is the same as energy. The CSV hand-off is one manual export/import step because TuneBad does not publish an integration API.</div>
+<p class="small" id="apiStatus">Ready. Paste your playlist link above to get started.</p>
 </div>
 <div class="card">
 <h2>03 / Set direction</h2>
@@ -61,7 +61,7 @@ footer{color:#7f878f;font-size:11px;text-align:center;margin-top:24px}
 </aside>
 </div>
 <div class="card"><div class="row" style="justify-content:space-between"><h2>07 / Your running order</h2><span class="tag" id="orderlabel">ORIGINAL ORDER</span></div><div class="tablewrap"><table><thead><tr><th>#</th><th>Track</th><th>Artist</th><th>BPM</th><th>Camelot</th><th>Energy</th><th></th></tr></thead><tbody id="tbody"><tr><td colspan="7" class="small">Your tracks will appear here.</td></tr></tbody></table></div></div>
-<footer>MONDO Playlist Analyser · Runs in your browser · Your playlist data stays on this device</footer>
+<footer>MONDO Playlist Analyser · Free TuneBad CSV workflow · Your playlist data stays on this device</footer>
 </main>
 <script>
 const $=id=>document.getElementById(id);let tracks=[];
@@ -96,7 +96,7 @@ let energy=Number(score.energy??a.energy);
 if(!Number.isFinite(bpm)||bpm<50||bpm>220||!camelot)return null;
 return {bpm,key:camelot,energy:Number.isFinite(energy)?Math.max(1,Math.min(10,energy*10)):5,source:'Musicae'};
 }
-$('csv').onchange=async e=>{let f=e.target.files[0];if(!f)return;try{let rows=parseCSV(await f.text()),head=rows.shift().map(x=>x.replace(/^\uFEFF/,'').trim().toLowerCase()),idx=(...names)=>{for(let n of names){let i=head.indexOf(n);if(i>=0)return i;}return -1;};let ti=idx('track name','title','track'),ai=idx('artist name(s)','artist','artists','artist names'),bi=idx('bpm','tempo'),ki=idx('camelot','key'),ei=idx('energy'),di=idx('track duration (ms)','duration (ms)','duration'),ui=idx('track uri','uri'),ii=idx('isrc');let imported=0;rows.forEach(p=>{let title=p[ti>=0?ti:0]||'',artist=p[ai>=0?ai:1]||'';if(!title.trim())return;let uri=p[ui]||'',duration=Number(p[di]);tracks.push({title:title.trim(),artist:artist.trim(),bpm:bi>=0?(Number(p[bi])||null):null,key:keyNorm(ki>=0?p[ki]:''),energy:ei>=0?(Number(p[ei])||5):5,duration:Number.isFinite(duration)?duration:null,uri,spotifyId:spotifyTrackId(uri),isrc:ii>=0?p[ii]||'':''});imported++;});render();$('status').textContent='Imported '+imported+' tracks from '+f.name+'. Spotify CSVs do not include BPM or Camelot key.';}catch(err){$('status').textContent='Could not read CSV: '+err.message;}e.target.value='';};
+$('csv').onchange=async e=>{let f=e.target.files[0];if(!f)return;try{let rows=parseCSV(await f.text()),head=rows.shift().map(x=>x.replace(/^\uFEFF/,'').trim().toLowerCase()),idx=(...names)=>{for(let n of names){let i=head.indexOf(n);if(i>=0)return i;}return -1;};let ti=idx('track name','title','track','file name','filename','song'),ai=idx('artist name(s)','artist','artists','artist names'),bi=idx('bpm','tempo'),ci=idx('camelot','camelot code'),ki=idx('key','musical key'),ei=idx('energy'),di=idx('track duration (ms)','duration (ms)','duration'),ui=idx('track uri','uri'),ii=idx('isrc');let imported=0;rows.forEach(p=>{let rawTitle=p[ti>=0?ti:0]||'',artist=ai>=0?(p[ai]||''):'';let title=rawTitle.trim();if(!title)return;if(!artist){let m=title.match(/^(.*?)\\s+-\\s+(.*)$/);if(m){title=m[1].trim();artist=m[2].trim();}}let uri=ui>=0?(p[ui]||''):'',duration=di>=0?Number(p[di]):null;let camelot=ci>=0?(p[ci]||''):(ki>=0?(p[ki]||''):'');tracks.push({title,artist:artist.trim(),bpm:bi>=0?(Number(p[bi])||null):null,key:keyNorm(camelot),energy:ei>=0?(Number(p[ei])||5):5,duration:Number.isFinite(duration)?duration:null,uri,spotifyId:spotifyTrackId(uri),isrc:ii>=0?p[ii]||'':'',analysisSource:ci>=0?'TuneBad CSV':''});imported++;});render();$('status').textContent='Imported '+imported+' tracks from '+f.name+'. '+(ci>=0||bi>=0?'BPM and Camelot values were detected. Energy remains 5 where the CSV has no energy column.':'No BPM/Camelot columns found — check that this is the TuneBad exported CSV.');}catch(err){$('status').textContent='Could not read CSV: '+err.message;}e.target.value='';};
 function keyScore(a,b){let x=a.key,y=b.key;if(!x||!y)return 1.8;if(x===y)return 0;if(!/^(1[0-2]|[1-9])[AB]$/.test(x)||!/^(1[0-2]|[1-9])[AB]$/.test(y))return 2.2;let na=+x.slice(0,-1),nb=+y.slice(0,-1),same=x.slice(-1)===y.slice(-1);if(na===nb&& !same)return .45;if(same&&(Math.abs(na-nb)===1||Math.abs(na-nb)===11))return .25;return 2.4;}
 function bpmScore(a,b){if(!a.bpm||!b.bpm)return 1.4;let d=Math.abs(a.bpm-b.bpm);return d<=2?d*.12:d<=5?.5+(d-2)*.25:1.25+(d-5)*.22;}
 function targetEnergyAt(position,total,style){
@@ -191,6 +191,8 @@ $('status').textContent='Musicae analysis loaded. Optimise the running order to 
 }catch(err){$('apiStatus').textContent=err.message+' Completed '+done+' new track(s) and saved them for next time.';setAnalysisCache(cache);render();}
 finally{$('analyse').disabled=false;}
 };
+$('openTuneBad').onclick=()=>{let u='https://www.tunebad.com/playlist-analyzer';window.open(u,'_blank','noopener');$('apiStatus').textContent='TuneBad opened. Paste your public Spotify playlist link there, analyze it and export the CSV.';};
+$('copySpotify').onclick=async()=>{let v=$('spotify').value.trim();if(!v){$('apiStatus').textContent='Paste your Spotify playlist link in the box above first.';return;}try{await navigator.clipboard.writeText(v);$('apiStatus').textContent='Playlist link copied. Paste it into TuneBad.';}catch(e){$('apiStatus').textContent='Select and copy the playlist link from the box above.';}};
 $('optimise').onclick=optimise;
 $('export').onclick=()=>{if(!tracks.length){$('status').textContent='Nothing to export yet.';return;}let rows=[['Position','Title','Artist','BPM','Camelot','Energy'],...tracks.map((t,i)=>[i+1,t.title,t.artist,t.bpm||'',t.key,t.energy])];let csv=rows.map(r=>r.map(v=>'"'+String(v??'').replace(/"/g,'""')+'"').join(',')).join('\n');let a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download='MONDO_optimised_set.csv';a.click();URL.revokeObjectURL(a.href);};
 </script></body></html>
