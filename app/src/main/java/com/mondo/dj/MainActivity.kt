@@ -115,9 +115,21 @@ class MainActivity : Activity() {
                 val uri=value.optString("uri","")
                 val name=value.optString("name","")
                 val artists=value.optJSONArray("artists")
-                if(uri.startsWith("spotify:track:") && name.isNotBlank() && artists!=null) {
-                    val artist=(0 until artists.length()).mapNotNull{artists.optJSONObject(it)?.optString("name")}.joinToString(", ")
-                    if(artist.isNotBlank()) out.add(name to artist)
+                val artistArray=if(artists!=null) (0 until artists.length()).mapNotNull {
+                    val a=artists.opt(it)
+                    when(a) {
+                        is JSONObject -> a.optString("name","").takeIf{it.isNotBlank()}
+                        is String -> a.takeIf{it.isNotBlank()}
+                        else -> null
+                    }
+                }.joinToString(", ") else ""
+                val artist=artistArray.ifBlank {
+                    value.optString("subtitle","").ifBlank {
+                        value.optString("artistName","").ifBlank { value.optString("artists","") }
+                    }
+                }
+                if(uri.startsWith("spotify:track:") && name.isNotBlank() && artist.isNotBlank()) {
+                    out.add(name to artist)
                 }
                 val keys=value.keys(); while(keys.hasNext()) collectTracks(value.opt(keys.next()),out)
             }
