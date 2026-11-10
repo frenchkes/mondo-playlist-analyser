@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>MONDO</title>
+<style>
+:root{color-scheme:dark}*{box-sizing:border-box}body{margin:0;padding:24px;background:#111315;color:#f5f5f5;font:15px system-ui,sans-serif}
+h1{color:#ff8a24;font-size:34px;margin:0} .sub{color:#aaa;font-size:11px;letter-spacing:1.5px;margin:2px 0 24px}
+p{color:#bbb;line-height:1.45}.btn{display:block;width:100%;border:0;border-radius:9px;background:#ff8a24;color:#151515;font-weight:800;padding:16px;margin:14px 0;font-size:15px}
+.note{font-size:12px;color:#999}.status{padding:12px;background:#202428;border-radius:8px;color:#ffbd7c;margin:12px 0}
+.track{padding:13px;margin:7px 0;background:#202428;border-left:3px solid #ff8a24;border-radius:5px}
+.track b{display:block;margin-bottom:6px}.metrics{color:#ddd;font-size:13px}.pill{color:#ffad60}
+</style></head>
+<body>
+<h1>MONDO.</h1><div class="sub">ESSENTIA AUDIO ANALYSER</div>
+<p>Choose audio files stored on your phone. Essentia runs the analysis on your device — no catalogue lookup and no per-track API calls.</p>
+<input id="files" type="file" accept="audio/*" multiple hidden>
+<button class="btn" id="pick">SELECT AUDIO FILES</button>
+<div class="note">MP3, WAV, FLAC, M4A and other formats supported by your Android audio decoder. Select several files together.</div>
+<div class="status" id="status">Loading Essentia audio engine…</div>
+<div id="results"></div>
+<script src="https://cdn.jsdelivr.net/npm/essentia.js@0.1.3/dist/essentia-wasm.umd.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/essentia.js@0.1.3/dist/essentia.js-core.umd.js"></script>
+<script>
+let engine=null, ready=false;
+const $=id=>document.getElementById(id);
+function say(s){$('status').textContent=s}
+const camelot={
+ 'C major':'8B','G major':'9B','D major':'10B','A major':'11B','E major':'12B','B major':'1B','F# major':'2B','C# major':'3B','G# major':'4B','D# major':'5B','A# major':'6B','F major':'7B',
+ 'A minor':'8A','E minor':'9A','B minor':'10A','F# minor':'11A','C# minor':'12A','G# minor':'1A','D# minor':'2A','A# minor':'3A','F minor':'4A','C minor':'5A','G minor':'6A','D minor':'7A'
+};
+async function init(){
+ try{
+  if(typeof Essentia==='undefined'||typeof EssentiaWASM==='undefined') throw new Error('Essentia files did not load. Check your internet connection and reopen MONDO.');
+  engine=new Essentia(EssentiaWASM);
+  ready=true;say('Essentia engine ready. Select your audio files.');
+ }catch(e){say('Engine error: '+e.message)}
+}
+function toArray(vec){if(vec&&typeof vec.toArray==='function')return vec.toArray();return Array.from(vec||[])}
+async function analyse(file){
+ const bytes=await file.arrayBuffer();
+ const ctx=new (window.AudioContext||window.webkitAudioContext)();
+ const buffer=await ctx.decodeAudioData(bytes);
+ const mono=engine.audioBufferToMonoSignal(buffer);
+ const signal=toArray(mono);
+ if(signal.length<buffer.sampleRate*15) throw new Error('Track is too short for reliable analysis');
+ const rhythm=engine.RhythmExtractor2013(mono,208,'multifeature',40);
+ const tonal=engine.KeyExtractor(mono,true,4096,4096,12,3500,60,25,0.2,'bgate',buffer.sampleRate);
+ const bpm=Number(rhythm.bpm);
+ const key=String(tonal.key||'');
+ const scale=String(tonal.scale||'');
+ const camel=camelot[(key+' '+scale)]||'—';
+ let sum=0;for(let i=0;i<signal.length;i+=8)sum+=signal[i]*signal[i];
+ const rms=Math.sqrt(sum/Math.ceil(signal.length/8));
+ const energy=Math.max(1,Math.min(10,Math.round((20*Math.log10(Math.max(rms,0.00001))+45)/4.5)));
+ mono.delete?.();ctx.close();
+ return {bpm:Number.isFinite(bpm)?bpm.toFixed(1):'—',key:key+' '+scale,camelot:camel,energy};
+}
+$('pick').addEventListener('click',()=>$('files').click());
+$('files').addEventListener('change',async e=>{
+ const files=Array.from(e.target.files||[]);if(!files.length)return;
+ if(!ready){say('Essentia is not ready yet.');return}
+ $('results').innerHTML='';
+ for(let i=0;i<files.length;i++){
+  const f=files[i];say('Analysing '+(i+1)+' of '+files.length+': '+f.name);
+  try{
+   const r=await analyse(f);
+   const card=document.createElement('div');card.className='track';
+   const b=document.createElement('b');b.textContent=f.name;card.appendChild(b);
+   const m=document.createElement('div');m.className='metrics';
+   m.textContent='BPM: '+r.bpm+'   •   Key: '+r.key+'   •   Camelot: '+r.camelot+'   •   Energy: '+r.energy+'/10';
+   card.appendChild(m);$('results').appendChild(card);
+  }catch(err){
+   const card=document.createElement('div');card.className='track';card.textContent=f.name+' — '+err.message;$('results').appendChild(card);
+  }
+ }
+ say('Finished. '+files.length+' file(s) processed locally by Essentia.');
+ e.target.value='';
+});
+init();
+</script></body></html>
