@@ -79,6 +79,52 @@ function spotifyTrackId(value){let v=String(value||'').trim();if(!v)return '';le
 $('openTuneBad').onclick=()=>{const link=$('spotify').value.trim();if(!/^https?:\\/\\/(open\\.)?spotify\\.com\\/playlist\\/[A-Za-z0-9]+/i.test(link)){ $('apiStatus').textContent='Paste a valid public Spotify playlist link first.'; $('spotify').focus(); return;} if(window.MondoBridge&&MondoBridge.openTuneBad){$('apiStatus').textContent='Opening TuneBad and starting playlist analysis…';MondoBridge.openTuneBad(link);}else{$('apiStatus').textContent='This direct import works in the MONDO Android app. On the website, use TuneBad then import its CSV.';window.open('https://www.tunebad.com/playlist-analyzer','_blank');}};
 $('copySpotify').onclick=async()=>{const value=$('spotify').value.trim();if(!value){$('apiStatus').textContent='First paste your Spotify playlist link into the box in section 01.';$('spotify').focus();return;}try{if(navigator.clipboard&&window.isSecureContext){await navigator.clipboard.writeText(value);}else{const input=$('spotify');input.focus();input.select();const ok=document.execCommand('copy');if(!ok)throw new Error('Copy unavailable');} $('apiStatus').textContent='Spotify playlist link copied. Open TuneBad and paste it there.';}catch(e){$('spotify').focus();$('spotify').select();$('apiStatus').textContent='Your link is selected. Tap and hold the link, then choose Copy.';}};
 window.receiveTuneBadData=function(rows){try{const data=typeof rows==='string'?JSON.parse(rows):rows;if(!Array.isArray(data)||!data.length)throw new Error('No track rows were returned.');const imported=data.map(x=>({title:String(x.title||x.track||x.name||'Unknown track'),artist:String(x.artist||x.artists||''),bpm:Number(x.bpm)||null,key:keyNorm(x.camelot||x.key||''),energy:5,duration:Number(x.duration)||0})).filter(x=>x.title);if(!imported.length)throw new Error('TuneBad returned no readable tracks.');tracks=imported;render();$('apiStatus').textContent='Imported '+tracks.length+' tracks from TuneBad. BPM and Camelot are ready; set energy levels to taste.';$('status').textContent='TuneBad import complete. Optimise your running order when ready.';document.querySelector('#tbody').scrollIntoView({behavior:'smooth',block:'start'});}catch(e){$('apiStatus').textContent='Import problem: '+e.message;}};
+
+function camelotDistance(a,b){
+ const x=String(a||'').toUpperCase().match(/^([1-9]|1[0-2])([AB])$/);
+ const y=String(b||'').toUpperCase().match(/^([1-9]|1[0-2])([AB])$/);
+ if(!x||!y)return 99;
+ const n=Math.abs(Number(x[1])-Number(y[1]));
+ const ring=Math.min(n,12-n);
+ return x[2]===y[2]?ring:(ring===0?1.5:99);
+}
+function optimise(){
+ if(!tracks.length){$('status').textContent='No tracks loaded yet. Import tracks from TuneBad first.';return;}
+ if(tracks.length===1){$('status').textContent='Only one track loaded. Add at least one more to optimise.';return;}
+ const target=$('target').value;
+ const range=target==='any'?null:target.split('–').map(Number);
+ let pool=tracks.slice(),ordered=[];
+ const style=$('style').value;
+ const energyTarget=t=>Number(t.energy)||5;
+ const bpmTarget=t=>Number(t.bpm)||0;
+ const score=(a,b)=>{
+   let s=0;
+   const ka=camelotDistance(a.key,b.key);
+   s+=ka<99?ka*3:12;
+   if(a.bpm&&b.bpm)s+=Math.abs(a.bpm-b.bpm)*0.65;
+   if(style==='acid'||style==='uplifting')s-=Math.max(0,energyTarget(b)-energyTarget(a))*1.1;
+   else if(style==='warmup')s+=Math.max(0,energyTarget(b)-energyTarget(a))*-1.5;
+   else s-=Math.max(0,energyTarget(b)-energyTarget(a))*0.35;
+   if(range&&b.bpm&&(b.bpm<range[0]||b.bpm>range[1]))s+=18;
+   return s;
+ };
+ // Start with the lowest-energy suitable track for a natural build.
+ pool.sort((a,b)=>energyTarget(a)-energyTarget(b));
+ let current=pool.shift();ordered.push(current);
+ while(pool.length){
+   let best=0,bestScore=Infinity;
+   for(let i=0;i<pool.length;i++){
+     const v=score(current,pool[i]);
+     if(v<bestScore){bestScore=v;best=i;}
+   }
+   current=pool.splice(best,1)[0];ordered.push(current);
+ }
+ tracks=ordered;
+ render();
+ $('orderlabel').textContent='OPTIMISED ORDER';
+ $('status').textContent='Running order optimised across '+tracks.length+' tracks using BPM, Camelot compatibility and your selected journey style.';
+}
+
 $('optimise').onclick=optimise;
 $('export').onclick=()=>{if(!tracks.length){$('status').textContent='Nothing to export yet.';return;}let rows=[['Position','Title','Artist','BPM','Camelot','Energy'],...tracks.map((t,i)=>[i+1,t.title,t.artist,t.bpm||'',t.key,t.energy])];let csv=rows.map(r=>r.map(v=>'"'+String(v??'').replace(/"/g,'""')+'"').join(',')).join('\n');let a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download='MONDO_optimised_set.csv';a.click();URL.revokeObjectURL(a.href);};
 </script></body></html>
