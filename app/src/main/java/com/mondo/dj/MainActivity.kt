@@ -171,7 +171,7 @@ class MainActivity : Activity() {
         val csv=buildString {
             append("Title,Artist,BPM,Camelot,Energy\n")
             tracks.forEach { t ->
-                fun q(s:String)="\""+s.replace("\"","\\"")+"\""
+                fun q(s:String)="\"" + s.replace(",", " ") + "\""
                 append("${q(t.title)},${q(t.artist)},${t.bpm ?: ""},${q(t.camelot)},${t.energy ?: ""}\n")
             }
         }
