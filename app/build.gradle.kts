@@ -6,11 +6,13 @@ android {
     namespace = "com.mondo.dj"
     compileSdk = 35
     defaultConfig {
-        applicationId = "com.mondo.dj"
+        // Use a fresh package id so Android cannot confuse this install with
+        // any earlier MONDO package/signature left in another profile.
+        applicationId = "com.kesmond.mondo"
         minSdk = 26
-        targetSdk = 35
-        versionCode = 2
-        versionName = "1.1"
+        targetSdk = 34
+        versionCode = 3
+        versionName = "1.2"
     }
     signingConfigs {
         getByName("debug") {
@@ -18,6 +20,8 @@ android {
             storePassword = "android"
             keyAlias = "androiddebugkey"
             keyPassword = "android"
+            enableV1Signing = true
+            enableV2Signing = true
         }
     }
     buildTypes {
