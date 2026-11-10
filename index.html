@@ -40,19 +40,27 @@ footer{color:#7f878f;font-size:11px;text-align:center;margin-top:24px}
 <p class="small">CSV columns supported: title, artist, bpm, key (Camelot such as 8A), energy. You can also edit every value after import.</p>
 </div>
 <div class="card">
-<h2>02 / Set direction</h2>
+<h2>02 / Automatic DJ analysis</h2>
+<p class="small">Connect Musicae through RapidAPI. Your key is saved only in this browser on this device; it is not written into the public website code.</p>
+<label>RapidAPI key</label><input id="apiKey" type="password" autocomplete="off" placeholder="Paste your X-RapidAPI-Key here">
+<div class="row" style="margin-top:10px"><button id="saveKey">Save key on this device</button><button class="secondary" id="clearKey">Forget key</button></div>
+<div class="row" style="margin-top:10px"><button id="analyse">Find BPM, Camelot & energy automatically</button></div>
+<p class="small" id="apiStatus">Import your Spotify CSV, save your key, then analyse. Up to 5 tracks are checked per API request.</p>
+</div>
+<div class="card">
+<h2>03 / Set direction</h2>
 <div class="row"><div><label>Journey style</label><select id="style"><option value="balanced">MONDO journey — balanced build</option><option value="uplifting">Uplifting trance / euphoria</option><option value="acid">Acid rave / peak-time</option><option value="warmup">Warm-up / gradual build</option></select></div><div><label>Target BPM</label><select id="target"><option value="any">Use the tracks' natural tempo</option><option>135–145</option><option>140–150</option><option>130–140</option></select></div></div>
 <div class="row" style="margin-top:14px"><button id="optimise">Optimise running order</button><button class="secondary" id="export">Export CSV</button></div>
 <p class="small" id="status">Add at least two tracks to begin.</p>
 </div>
 </section>
 <aside>
-<div class="card"><h2>03 / Set overview</h2><div class="stats"><div class="stat"><b id="count">0</b><span>TRACKS</span></div><div class="stat"><b id="duration">0m</b><span>DURATION*</span></div><div class="stat"><b id="avg">—</b><span>AVG BPM</span></div></div><p class="small" style="margin-top:12px">*Duration is estimated at 5 minutes per track until track lengths are imported.</p></div>
-<div class="card"><h2>04 / Energy curve</h2><div id="curve" class="small">Your set's energy progression will appear here.</div></div>
-<div class="card"><h2>05 / Harmonic mixing reminder</h2><p class="small">Strong Camelot neighbours: same key (e.g. 8A → 8A), ±1 number in the same letter (8A → 9A), or relative major/minor (8A → 8B). Treat this as a guide — phrasing, basslines and ears still win.</p></div>
+<div class="card"><h2>04 / Set overview</h2><div class="stats"><div class="stat"><b id="count">0</b><span>TRACKS</span></div><div class="stat"><b id="duration">0m</b><span>DURATION*</span></div><div class="stat"><b id="avg">—</b><span>AVG BPM</span></div></div><p class="small" style="margin-top:12px">*Duration is estimated at 5 minutes per track until track lengths are imported.</p></div>
+<div class="card"><h2>05 / Energy curve</h2><div id="curve" class="small">Your set's energy progression will appear here.</div></div>
+<div class="card"><h2>06 / Harmonic mixing reminder</h2><p class="small">Strong Camelot neighbours: same key (e.g. 8A → 8A), ±1 number in the same letter (8A → 9A), or relative major/minor (8A → 8B). Treat this as a guide — phrasing, basslines and ears still win.</p></div>
 </aside>
 </div>
-<div class="card"><div class="row" style="justify-content:space-between"><h2>06 / Your running order</h2><span class="tag" id="orderlabel">ORIGINAL ORDER</span></div><div class="tablewrap"><table><thead><tr><th>#</th><th>Track</th><th>Artist</th><th>BPM</th><th>Camelot</th><th>Energy</th><th></th></tr></thead><tbody id="tbody"><tr><td colspan="7" class="small">Your tracks will appear here.</td></tr></tbody></table></div></div>
+<div class="card"><div class="row" style="justify-content:space-between"><h2>07 / Your running order</h2><span class="tag" id="orderlabel">ORIGINAL ORDER</span></div><div class="tablewrap"><table><thead><tr><th>#</th><th>Track</th><th>Artist</th><th>BPM</th><th>Camelot</th><th>Energy</th><th></th></tr></thead><tbody id="tbody"><tr><td colspan="7" class="small">Your tracks will appear here.</td></tr></tbody></table></div></div>
 <footer>MONDO Playlist Analyser · Runs in your browser · Your playlist data stays on this device</footer>
 </main>
 <script>
@@ -67,7 +75,28 @@ function drawCurve(){if(!tracks.length){$('curve').textContent='Your set’s ene
 $('add').onclick=()=>{let lines=$('paste').value.split(/\n/).map(x=>x.trim()).filter(Boolean);let before=tracks.length;lines.forEach(l=>{let t=parseSimple(l);if(t.title)tracks.push(t)});render();$('status').textContent=`Added ${tracks.length-before} track(s). Check BPM and Camelot values before optimising.`;$('paste').value='';};
 function parseCSV(text){let rows=[],row=[],cell='',quoted=false;for(let i=0;i<text.length;i++){let c=text[i],n=text[i+1];if(c==='"'&&quoted&&n==='"'){cell+='"';i++;}else if(c==='"'){quoted=!quoted;}else if(c===','&&!quoted){row.push(cell);cell='';}else if((c==='\n'||c==='\r')&&!quoted){if(c==='\r'&&n==='\n')i++;row.push(cell);if(row.some(v=>v.trim()))rows.push(row);row=[];cell='';}else cell+=c;}row.push(cell);if(row.some(v=>v.trim()))rows.push(row);return rows;}
 function parseCSV(text){let rows=[],row=[],cell='',quoted=false;for(let i=0;i<text.length;i++){let c=text[i],n=text[i+1];if(c==='"'&&quoted&&n==='"'){cell+='"';i++;}else if(c==='"'){quoted=!quoted;}else if(c===','&&!quoted){row.push(cell);cell='';}else if((c==='\n'||c==='\r')&&!quoted){if(c==='\r'&&n==='\n')i++;row.push(cell);if(row.some(v=>v.trim()))rows.push(row);row=[];cell='';}else cell+=c;}row.push(cell);if(row.some(v=>v.trim()))rows.push(row);return rows;}
-$('csv').onchange=async e=>{let f=e.target.files[0];if(!f)return;try{let rows=parseCSV(await f.text()),head=rows.shift().map(x=>x.replace(/^\uFEFF/,'').trim().toLowerCase()),idx=(...names)=>{for(let n of names){let i=head.indexOf(n);if(i>=0)return i;}return -1;};let ti=idx('track name','title','track'),ai=idx('artist name(s)','artist','artists','artist names'),bi=idx('bpm','tempo'),ki=idx('camelot','key'),ei=idx('energy'),di=idx('track duration (ms)','duration (ms)','duration'),ui=idx('track uri','uri'),ii=idx('isrc');let imported=0;rows.forEach(p=>{let title=p[ti>=0?ti:0]||'',artist=p[ai>=0?ai:1]||'';if(!title.trim())return;let uri=p[ui]||'',duration=Number(p[di]);tracks.push({title:title.trim(),artist:artist.trim(),bpm:bi>=0?(Number(p[bi])||null):null,key:keyNorm(ki>=0?p[ki]:''),energy:ei>=0?(Number(p[ei])||5):5,duration:Number.isFinite(duration)?duration:null,uri,spotifyId:uri.split(':').pop(),isrc:ii>=0?p[ii]||'':''});imported++;});render();$('status').textContent='Imported '+imported+' tracks from '+f.name+'. Spotify CSVs do not include BPM or Camelot key.';}catch(err){$('status').textContent='Could not read CSV: '+err.message;}e.target.value='';};
+function spotifyTrackId(value){let v=String(value||'').trim();if(!v)return '';let m=v.match(/(?:spotify:track:|open\\.spotify\\.com\\/track\\/)([A-Za-z0-9]{22})/);if(m)return m[1];return /^[A-Za-z0-9]{22}$/.test(v)?v:'';}
+function analysisCache(){try{return JSON.parse(localStorage.getItem('mondoMusicaeCache')||'{}')}catch(e){return {}}}
+function setAnalysisCache(cache){try{localStorage.setItem('mondoMusicaeCache',JSON.stringify(cache))}catch(e){}}
+function pickAnalysis(payload,id){
+let candidates=[];
+function walk(x,depth){if(!x||depth>5)return;if(Array.isArray(x)){x.forEach(v=>walk(v,depth+1));return;}if(typeof x!=='object')return;
+if(x.rhythm||x.harmony||x.audio_analysis||x.analysis)candidates.push(x);
+Object.keys(x).forEach(k=>{if(typeof x[k]==='object')walk(x[k],depth+1);});}
+walk(payload,0);
+let found=candidates.find(x=>{let tid=x.track?.ids?.spotify||x.track?.id||x.ids?.spotify||x.id;return !id||tid===id;})||candidates[0];
+if(!found)return null;
+let a=found.audio_analysis||found.analysis||found;
+let rhythm=a.rhythm||found.rhythm||{};
+let harmony=a.harmony||found.harmony||{};
+let score=a.score||found.score||{};
+let bpm=Number(rhythm.bpm||rhythm.tempo_bpm||a.bpm);
+let camelot=String(harmony.camelot||harmony.camelot_key||a.camelot||'').toUpperCase();
+let energy=Number(score.energy??a.energy);
+if(!Number.isFinite(bpm)||bpm<50||bpm>220||!camelot)return null;
+return {bpm,key:camelot,energy:Number.isFinite(energy)?Math.max(1,Math.min(10,energy*10)):5,source:'Musicae'};
+}
+$('csv').onchange=async e=>{let f=e.target.files[0];if(!f)return;try{let rows=parseCSV(await f.text()),head=rows.shift().map(x=>x.replace(/^\uFEFF/,'').trim().toLowerCase()),idx=(...names)=>{for(let n of names){let i=head.indexOf(n);if(i>=0)return i;}return -1;};let ti=idx('track name','title','track'),ai=idx('artist name(s)','artist','artists','artist names'),bi=idx('bpm','tempo'),ki=idx('camelot','key'),ei=idx('energy'),di=idx('track duration (ms)','duration (ms)','duration'),ui=idx('track uri','uri'),ii=idx('isrc');let imported=0;rows.forEach(p=>{let title=p[ti>=0?ti:0]||'',artist=p[ai>=0?ai:1]||'';if(!title.trim())return;let uri=p[ui]||'',duration=Number(p[di]);tracks.push({title:title.trim(),artist:artist.trim(),bpm:bi>=0?(Number(p[bi])||null):null,key:keyNorm(ki>=0?p[ki]:''),energy:ei>=0?(Number(p[ei])||5):5,duration:Number.isFinite(duration)?duration:null,uri,spotifyId:spotifyTrackId(uri),isrc:ii>=0?p[ii]||'':''});imported++;});render();$('status').textContent='Imported '+imported+' tracks from '+f.name+'. Spotify CSVs do not include BPM or Camelot key.';}catch(err){$('status').textContent='Could not read CSV: '+err.message;}e.target.value='';};
 function keyScore(a,b){let x=a.key,y=b.key;if(!x||!y)return 1.8;if(x===y)return 0;if(!/^(1[0-2]|[1-9])[AB]$/.test(x)||!/^(1[0-2]|[1-9])[AB]$/.test(y))return 2.2;let na=+x.slice(0,-1),nb=+y.slice(0,-1),same=x.slice(-1)===y.slice(-1);if(na===nb&& !same)return .45;if(same&&(Math.abs(na-nb)===1||Math.abs(na-nb)===11))return .25;return 2.4;}
 function bpmScore(a,b){if(!a.bpm||!b.bpm)return 1.4;let d=Math.abs(a.bpm-b.bpm);return d<=2?d*.12:d<=5?.5+(d-2)*.25:1.25+(d-5)*.22;}
 function targetEnergyAt(position,total,style){
@@ -126,6 +155,42 @@ let best=beam[0];
 tracks=best.path.map(i=>source[i]);
 render();$('orderlabel').textContent='OPTIMISED ORDER';
 $('status').textContent='Best-fit running order generated using Camelot compatibility, BPM closeness and a style-shaped energy journey. Check the energy ratings first — imported Spotify CSVs do not contain track energy.';
-}$('optimise').onclick=optimise;
+}const savedApiKey=localStorage.getItem('mondoRapidApiKey')||'';$('apiKey').value=savedApiKey;
+$('saveKey').onclick=()=>{let k=$('apiKey').value.trim();if(!k){$('apiStatus').textContent='Paste your RapidAPI key first.';return;}localStorage.setItem('mondoRapidApiKey',k);$('apiStatus').textContent='API key saved on this device. It is not included in the public website code.';};
+$('clearKey').onclick=()=>{localStorage.removeItem('mondoRapidApiKey');$('apiKey').value='';$('apiStatus').textContent='Saved key forgotten on this device.';};
+function readTrackId(t){return t.spotifyId||spotifyTrackId(t.uri)||'';}
+function applyMusicaeResult(t,payload,id){let result=pickAnalysis(payload,id);if(!result)return false;t.bpm=result.bpm;t.key=result.key;t.energy=result.energy;t.analysisSource='Musicae';return true;}
+$('analyse').onclick=async()=>{
+let key=($('apiKey').value||localStorage.getItem('mondoRapidApiKey')||'').trim();
+if(!key){$('apiStatus').textContent='Add your RapidAPI key and save it first.';return;}
+if(!tracks.length){$('apiStatus').textContent='Import your Spotify CSV first.';return;}
+localStorage.setItem('mondoRapidApiKey',key);
+let cache=analysisCache(),todo=[],noId=0,cached=0;
+tracks.forEach(t=>{let id=readTrackId(t);if(!id){noId++;return;}if(cache[id]){t.bpm=cache[id].bpm;t.key=cache[id].key;t.energy=cache[id].energy;t.analysisSource='Musicae cache';cached++;}else todo.push({id,track:t});});
+render();
+if(!todo.length){$('apiStatus').textContent='All identifiable tracks already have saved analysis. '+noId+' track(s) had no Spotify ID.';return;}
+let batches=[];for(let i=0;i<todo.length;i+=5)batches.push(todo.slice(i,i+5));
+let done=0,failed=0,requests=0;
+$('analyse').disabled=true;
+try{
+for(let bi=0;bi<batches.length;bi++){
+let batch=batches[bi],ids=batch.map(x=>x.id);
+$('apiStatus').textContent='Analysing batch '+(bi+1)+' of '+batches.length+' · '+done+' tracks completed · '+requests+' requests used this run.';
+let url='https://dj-track-audio-analysis-api.p.rapidapi.com/v2/audio-analysis?'+new URLSearchParams({ids:ids.join(','),market:'FR'}).toString();
+let response=await fetch(url,{method:'GET',headers:{'X-RapidAPI-Key':key,'X-RapidAPI-Host':'dj-track-audio-analysis-api.p.rapidapi.com'}});
+requests++;
+if(response.status===429)throw new Error('RapidAPI daily request limit reached (HTTP 429). Your completed results are saved; try the remaining tracks tomorrow.');
+if(response.status===401||response.status===403)throw new Error('RapidAPI rejected the key or subscription (HTTP '+response.status+'). Check that the DJ Track Audio Analysis API Basic plan is active and the key is correct.');
+if(!response.ok)throw new Error('Musicae returned HTTP '+response.status+'. '+(await response.text()).slice(0,220));
+let data=await response.json();
+for(let item of batch){if(applyMusicaeResult(item.track,data,item.id)){cache[item.id]={bpm:item.track.bpm,key:item.track.key,energy:item.track.energy};done++;}else failed++;}
+setAnalysisCache(cache);render();
+}
+$('apiStatus').textContent='Finished! '+done+' track(s) analysed, '+cached+' loaded from cache, '+failed+' not matched by the API, '+noId+' without Spotify IDs. Used '+requests+' API request(s).';
+$('status').textContent='Musicae analysis loaded. Optimise the running order to use the real BPM, Camelot and energy data.';
+}catch(err){$('apiStatus').textContent=err.message+' Completed '+done+' new track(s) and saved them for next time.';setAnalysisCache(cache);render();}
+finally{$('analyse').disabled=false;}
+};
+$('optimise').onclick=optimise;
 $('export').onclick=()=>{if(!tracks.length){$('status').textContent='Nothing to export yet.';return;}let rows=[['Position','Title','Artist','BPM','Camelot','Energy'],...tracks.map((t,i)=>[i+1,t.title,t.artist,t.bpm||'',t.key,t.energy])];let csv=rows.map(r=>r.map(v=>'"'+String(v??'').replace(/"/g,'""')+'"').join(',')).join('\n');let a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download='MONDO_optimised_set.csv';a.click();URL.revokeObjectURL(a.href);};
 </script></body></html>
