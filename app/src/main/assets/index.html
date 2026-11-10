@@ -51,6 +51,12 @@ footer{color:#7f878f;font-size:11px;text-align:center;margin-top:24px}
 <h2>03 / Set direction</h2>
 <div class="row"><div><label>Journey style</label><select id="style"><option value="balanced">MONDO journey — balanced build</option><option value="uplifting">Uplifting trance / euphoria</option><option value="acid">Acid rave / peak-time</option><option value="warmup">Warm-up / gradual build</option></select></div><div><label>Target BPM</label><select id="target"><option value="any">Use the tracks' natural tempo</option><option>135–145</option><option>140–150</option><option>130–140</option></select></div></div>
 <div class="row" style="margin-top:14px"><button id="estimateEnergy" class="secondary">Estimate energy levels</button><button id="optimise">Optimise running order</button><button class="secondary" id="export">Export CSV</button></div>
+<div class="card" style="margin-top:14px;background:#15181b">
+<h2>Save your DJ sets</h2>
+<div class="row"><input id="setName" placeholder="Name this set (e.g. MONDO Trance 01)"><button id="saveSet">Save set</button></div>
+<div class="row" style="margin-top:9px"><select id="savedSets"><option value="">Choose a saved set…</option></select><button class="secondary" id="loadSet">Load</button><button class="secondary" id="deleteSet">Delete</button></div>
+<p class="small" id="saveStatus">Saved sets stay on this device in MONDO's local storage.</p>
+</div>
 <p class="small">Energy scale: 1–3 warm-up · 4–5 building · 6–7 driving · 8–9 peak-time · 10 full rave. Estimates use tempo as a starting clue; adjust them to match the actual record.</p>
 <p class="small" id="status">Add at least two tracks to begin.</p>
 </div>
@@ -129,6 +135,15 @@ function optimise(){
 
 $('estimateEnergy').onclick=()=>{if(!tracks.length){$('status').textContent='Import your TuneBad tracks first.';return;}tracks=tracks.map(t=>({...t,energy:estimateEnergy(Number(t.bpm)||null,$('style').value)}));render();$('status').textContent='Estimated energy for '+tracks.length+' tracks from BPM and journey style. You can edit any score manually.';};
 $('style').addEventListener('change',()=>{if(tracks.length)$('status').textContent='Journey style changed. Tap Estimate energy levels to refresh the suggested scores, or keep your manual ratings.';});
+
+const SETS_KEY='mondo_saved_sets_v1';
+function readSavedSets(){try{return JSON.parse(localStorage.getItem(SETS_KEY)||'{}')}catch(e){return {}}}
+function refreshSavedSets(){const select=$('savedSets');if(!select)return;const previous=select.value;const sets=readSavedSets();select.innerHTML='<option value="">Choose a saved set…</option>'+Object.keys(sets).sort().map(k=>'<option value="'+esc(k)+'">'+esc(sets[k].name||k)+'</option>').join('');if(sets[previous])select.value=previous;}
+function saveCurrentSet(){if(!tracks.length){$('saveStatus').textContent='Import or add tracks before saving a set.';return;}const name=$('setName').value.trim();if(!name){$('saveStatus').textContent='Give this set a name first.';$('setName').focus();return;}const sets=readSavedSets();const id=name.toLowerCase();sets[id]={name,tracks:tracks.map(t=>({...t})),style:$('style').value,target:$('target').value,spotify:$('spotify').value,updated:new Date().toISOString()};try{localStorage.setItem(SETS_KEY,JSON.stringify(sets));refreshSavedSets();$('savedSets').value=id;$('saveStatus').textContent='Saved "'+name+'" on this device.';}catch(e){$('saveStatus').textContent='Could not save: device storage may be full or unavailable.';}}
+function loadSavedSet(){const id=$('savedSets').value;if(!id){$('saveStatus').textContent='Choose a saved set first.';return;}const item=readSavedSets()[id];if(!item)return;tracks=(item.tracks||[]).map(t=>({...t}));$('style').value=item.style||'balanced';$('target').value=item.target||'any';$('spotify').value=item.spotify||'';$('setName').value=item.name||'';render();$('orderlabel').textContent='SAVED SET';$('saveStatus').textContent='Loaded "'+item.name+'" — '+tracks.length+' tracks.';}
+function deleteSavedSet(){const id=$('savedSets').value;if(!id){$('saveStatus').textContent='Choose a saved set first.';return;}const sets=readSavedSets();const name=sets[id]?.name||id;delete sets[id];localStorage.setItem(SETS_KEY,JSON.stringify(sets));refreshSavedSets();$('saveStatus').textContent='Deleted "'+name+'" from this device.';}
+$('saveSet').onclick=saveCurrentSet;$('loadSet').onclick=loadSavedSet;$('deleteSet').onclick=deleteSavedSet;refreshSavedSets();
+
 $('optimise').onclick=optimise;
 $('export').onclick=()=>{if(!tracks.length){$('status').textContent='Nothing to export yet.';return;}let rows=[['Position','Title','Artist','BPM','Camelot','Energy'],...tracks.map((t,i)=>[i+1,t.title,t.artist,t.bpm||'',t.key,t.energy])];let csv=rows.map(r=>r.map(v=>'"'+String(v??'').replace(/"/g,'""')+'"').join(',')).join('\n');let a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download='MONDO_optimised_set.csv';a.click();URL.revokeObjectURL(a.href);};
 </script></body></html>
