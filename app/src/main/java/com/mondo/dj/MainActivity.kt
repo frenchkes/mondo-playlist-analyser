@@ -71,58 +71,84 @@ class MainActivity : Activity() {
             (function(){
               if(window.__mondoTuneBadHelper) return;
               window.__mondoTuneBadHelper=true;
-              const url=$playlist;
-              function start(){
-                const inputs=Array.from(document.querySelectorAll('input')).filter(x=>x.type!=='hidden');
-                const field=inputs.find(x=>/playlist|spotify|youtube|link/i.test((x.placeholder||'')+' '+(x.getAttribute('aria-label')||'')+' '+(x.name||''))) || inputs[0];
-                if(field){
-                  field.value=url;
-                  field.dispatchEvent(new Event('input',{bubbles:true}));
-                  field.dispatchEvent(new Event('change',{bubbles:true}));
-                  const btn=Array.from(document.querySelectorAll('button')).find(b=>/analyze playlist/i.test(b.innerText||b.textContent||''));
-                  if(btn) btn.click();
-                }
-                addImportButton();
-                const observer=new MutationObserver(addImportButton);
+              const playlistUrl=$playlist;
+              const log=(msg)=>{try{console.log('[MONDO] '+msg)}catch(e){}};
+              function findInput(){
+                return Array.from(document.querySelectorAll('input')).find(el =>
+                  /spotify|youtube|playlist|link/i.test(
+                    (el.placeholder||'')+' '+(el.getAttribute('aria-label')||'')+' '+(el.name||'')
+                  )
+                ) || Array.from(document.querySelectorAll('input')).find(el=>el.type==='text' || !el.type);
+              }
+              function fillAndSubmit(){
+                const input=findInput();
+                const button=Array.from(document.querySelectorAll('button')).find(b =>
+                  /analyze playlist/i.test((b.innerText||b.textContent||'').trim())
+                );
+                if(!input || !button){log('Waiting for TuneBad form');return false;}
+                // React-controlled inputs must be changed through the native setter.
+                const setter=Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set;
+                setter.call(input,playlistUrl);
+                input.dispatchEvent(new Event('input',{bubbles:true}));
+                input.dispatchEvent(new Event('change',{bubbles:true}));
+                input.dispatchEvent(new KeyboardEvent('keyup',{bubbles:true,key:'v'}));
+                log('Filled playlist input; waiting for validation');
+                let attempts=0;
+                const poll=setInterval(()=>{
+                  attempts++;
+                  const current=findInput();
+                  const submit=Array.from(document.querySelectorAll('button')).find(b =>
+                    /analyze playlist/i.test((b.innerText||b.textContent||'').trim())
+                  );
+                  if(current && current.value===playlistUrl && submit && !submit.disabled){
+                    clearInterval(poll);
+                    submit.click();
+                    log('Submitted TuneBad playlist');
+                    watchResults();
+                  } else if(attempts>30){
+                    clearInterval(poll);
+                    log('TuneBad did not enable Analyze Playlist; check link and page validation');
+                    const note=document.createElement('div');
+                    note.textContent='MONDO: The playlist link was filled, but TuneBad did not enable Analyze Playlist. Check that the playlist is public and the full link is valid.';
+                    note.style='position:fixed;z-index:2147483647;bottom:12px;left:4%;width:92%;padding:14px;background:#ff8a24;color:#111;border-radius:10px;font-weight:700';
+                    document.body.appendChild(note);
+                  }
+                },300);
+                return true;
+              }
+              function watchResults(){
+                const observer=new MutationObserver(()=>addImportButton());
                 observer.observe(document.body,{childList:true,subtree:true});
-                setInterval(addImportButton,1200);
+                setInterval(addImportButton,1000);
+                addImportButton();
               }
               function addImportButton(){
-                let rows=[];
-                for(const table of document.querySelectorAll('table')){
-                  const trs=Array.from(table.querySelectorAll('tr'));
-                  if(trs.length>1) rows=trs;
-                }
-                if(!rows.length) return;
+                const tables=Array.from(document.querySelectorAll('table'));
+                let selected=null;
+                for(const table of tables){const trs=Array.from(table.querySelectorAll('tr'));if(trs.length>1)selected=trs;}
+                const rows=selected;
+                if(!rows)return;
                 let button=document.getElementById('mondo-import-results');
                 if(!button){
                   button=document.createElement('button');button.id='mondo-import-results';
                   button.textContent='IMPORT RESULTS INTO MONDO';
                   button.style='position:fixed;z-index:2147483647;bottom:18px;left:5%;width:90%;padding:17px;background:#ff8a24;color:#111;border:0;border-radius:12px;font-weight:900;font-size:16px;box-shadow:0 4px 18px #0008';
                   button.onclick=function(){
-                    const tables=Array.from(document.querySelectorAll('table'));
-                    let chosen=null;
-                    for(const table of tables){const tr=Array.from(table.querySelectorAll('tr'));if(tr.length>1)chosen=tr;}
-                    if(!chosen){alert('No analysed track table found yet.');return;}
-                    const headers=Array.from(chosen[0].querySelectorAll('th,td')).map(x=>(x.innerText||x.textContent||'').trim().toLowerCase());
-                    const find=(cells,terms)=>{let i=headers.findIndex(h=>terms.some(t=>h.includes(t)));return i>=0?(cells[i]||'').trim():'';};
-                    const out=chosen.slice(1).map(tr=>{
+                    const heads=Array.from(rows[0].querySelectorAll('th,td')).map(x=>(x.innerText||x.textContent||'').trim().toLowerCase());
+                    const idx=(terms)=>heads.findIndex(h=>terms.some(t=>h.includes(t)));
+                    const out=rows.slice(1).map(tr=>{
                       const cells=Array.from(tr.querySelectorAll('td,th')).map(x=>(x.innerText||x.textContent||'').trim());
-                      const joined=cells.join(' ');
-                      const bpm=find(cells,['bpm','tempo']);
-                      const camel=find(cells,['camelot']);
-                      const key=find(cells,['key','tonality']);
-                      const title=find(cells,['track','song','title','name']) || cells[0] || '';
-                      const artist=find(cells,['artist']);
-                      return {title:title,artist:artist,bpm:parseFloat(bpm.replace(/[^0-9.]/g,''))||null,key:camel||key};
+                      const val=(terms)=>{const i=idx(terms);return i>=0?(cells[i]||''):'';};
+                      return {title:val(['track','song','title','name'])||cells[0]||'',artist:val(['artist']),bpm:parseFloat(val(['bpm','tempo']).replace(/[^0-9.]/g,''))||null,key:val(['camelot'])||val(['key','tonality'])};
                     }).filter(x=>x.title);
-                    if(!out.length){alert('TuneBad results appeared, but MONDO could not read the track rows.');return;}
+                    if(!out.length){alert('No readable analysed tracks found yet.');return;}
                     MondoBridge.importResults(JSON.stringify(out));
                   };
                   document.body.appendChild(button);
                 }
               }
-              setTimeout(start,900);
+              let tries=0;
+              const starter=setInterval(()=>{tries++;if(fillAndSubmit()||tries>20)clearInterval(starter);},500);
             })();
         """.trimIndent()
         web.evaluateJavascript(script, null)
