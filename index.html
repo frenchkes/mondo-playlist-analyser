@@ -92,6 +92,10 @@ return score;
 }
 function optimise(){
 if(tracks.length<2){$('status').textContent='Add at least two tracks first.';return;}
+let knownBpm=tracks.filter(t=>Number(t.bpm)>0).length;
+let knownKey=tracks.filter(t=>/^(1[0-2]|[1-9])[AB]$/.test(keyNorm(t.key))).length;
+let variedEnergy=tracks.filter(t=>Number(t.energy)!==5 && Number(t.energy)>=1 && Number(t.energy)<=10).length;
+if(knownBpm+knownKey+variedEnergy<2){$('status').textContent='Not enough track data to build a meaningful order yet. Your CSV has no BPM or Camelot keys, and every track currently has the default energy of 5. Add BPM, Camelot key and/or individual energy ratings in the table, then optimise again.';$('orderlabel').textContent='NEEDS TRACK DATA';return;}
 let source=[...tracks],style=$('style').value,target=$('target').value,total=source.length;
 let [lo,hi]=target==='any'?[0,999]:target.replace('–','-').split('-').map(Number);
 let beamWidth=100,beam=[];
