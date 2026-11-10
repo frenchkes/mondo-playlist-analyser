@@ -2,80 +2,83 @@
 <html lang="en">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>MONDO</title>
+<meta name="theme-color" content="#17191c">
+<title>MONDO Playlist Analyser</title>
 <style>
-:root{color-scheme:dark}*{box-sizing:border-box}body{margin:0;padding:24px;background:#111315;color:#f5f5f5;font:15px system-ui,sans-serif}
-h1{color:#ff8a24;font-size:34px;margin:0} .sub{color:#aaa;font-size:11px;letter-spacing:1.5px;margin:2px 0 24px}
-p{color:#bbb;line-height:1.45}.btn{display:block;width:100%;border:0;border-radius:9px;background:#ff8a24;color:#151515;font-weight:800;padding:16px;margin:14px 0;font-size:15px}
-.note{font-size:12px;color:#999}.status{padding:12px;background:#202428;border-radius:8px;color:#ffbd7c;margin:12px 0}
-.track{padding:13px;margin:7px 0;background:#202428;border-left:3px solid #ff8a24;border-radius:5px}
-.track b{display:block;margin-bottom:6px}.metrics{color:#ddd;font-size:13px}.pill{color:#ffad60}
-</style></head>
-<body>
-<h1>MONDO.</h1><div class="sub">ESSENTIA AUDIO ANALYSER</div>
-<p>Choose audio files stored on your phone. Essentia runs the analysis on your device — no catalogue lookup and no per-track API calls.</p>
-<input id="files" type="file" accept="audio/*" multiple hidden>
-<button class="btn" id="pick">SELECT AUDIO FILES</button>
-<div class="note">MP3, WAV, FLAC, M4A and other formats supported by your Android audio decoder. Select several files together.</div>
-<div class="status" id="status">Loading Essentia audio engine…</div>
-<div id="results"></div>
-<script src="https://cdn.jsdelivr.net/npm/essentia.js@0.1.3/dist/essentia-wasm.umd.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/essentia.js@0.1.3/dist/essentia.js-core.umd.js"></script>
+:root{--bg:#111315;--panel:#1b1e22;--panel2:#22262b;--line:#343a41;--orange:#ff8a24;--text:#f4f5f6;--muted:#a4abb3;--green:#75d6a1}
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 85% 0,#352315 0,transparent 32%),var(--bg);color:var(--text);font:15px/1.45 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+.wrap{max-width:1120px;margin:auto;padding:22px 18px 48px}.top{display:flex;justify-content:space-between;align-items:center;gap:12px;border-bottom:1px solid var(--line);padding:8px 0 20px}
+.brand{font-weight:900;letter-spacing:.16em;font-size:28px}.brand span{color:var(--orange)}.sub{color:var(--muted);font-size:11px;letter-spacing:.22em}
+.pill{border:1px solid #75451f;color:#ffb36d;border-radius:99px;padding:6px 11px;font-size:11px;letter-spacing:.08em}
+h1{font-size:clamp(28px,5vw,44px);line-height:1.05;margin:28px 0 8px}h1 em{color:var(--orange);font-style:normal}.lead{color:var(--muted);max-width:700px;margin:0 0 22px}
+.grid{display:grid;grid-template-columns:1.1fr .9fr;gap:16px}.card{background:linear-gradient(145deg,var(--panel),#171a1d);border:1px solid var(--line);border-radius:16px;padding:18px;margin-bottom:16px;box-shadow:0 12px 30px #0002}
+h2{font-size:16px;margin:0 0 12px}.small{font-size:12px;color:var(--muted)}label{display:block;color:#c8cdd2;font-size:12px;margin:12px 0 6px}
+input,textarea,select{width:100%;background:#101214;border:1px solid #3b424a;color:var(--text);border-radius:9px;padding:11px;font:inherit;outline:none}textarea{min-height:118px;resize:vertical}input:focus,textarea:focus,select:focus{border-color:var(--orange)}
+button,.filebtn{background:var(--orange);color:#17191c;border:0;border-radius:9px;padding:11px 15px;font-weight:800;cursor:pointer;display:inline-block}button.secondary{background:#2a3036;color:#e9edf0;border:1px solid #414950}button:disabled{opacity:.4;cursor:not-allowed}
+.row{display:flex;gap:9px;align-items:center;flex-wrap:wrap}.row>*{flex:1}.row button{flex:0 0 auto}.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.stat{background:#111416;border:1px solid var(--line);border-radius:10px;padding:12px}.stat b{font-size:23px;display:block;color:var(--orange)}.stat span{font-size:11px;color:var(--muted)}
+.tablewrap{overflow:auto}table{width:100%;border-collapse:collapse;min-width:620px}th,td{text-align:left;padding:10px 8px;border-bottom:1px solid #30363c;font-size:13px}th{color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.08em}td input{padding:6px;min-width:58px}.trackname{font-weight:700}.artist{color:var(--muted);font-size:11px}
+.tag{font-size:11px;padding:4px 7px;background:#332719;color:#ffb36d;border-radius:6px}.notice{background:#2a2119;border:1px solid #67421f;color:#f4c69d;padding:12px;border-radius:10px;font-size:12px;margin-top:12px}
+.bar{height:9px;background:#343a41;border-radius:99px;overflow:hidden}.bar i{display:block;height:100%;background:linear-gradient(90deg,#e56c1c,#ffbd58);border-radius:99px}
+.tracklist{display:flex;flex-direction:column;gap:7px}.track{display:grid;grid-template-columns:30px 1fr 58px 58px 58px;gap:8px;align-items:center;background:#111416;border:1px solid #30363c;border-radius:9px;padding:9px}.num{color:var(--orange);font-weight:800}.track small{display:block;color:var(--muted)}.track strong{font-size:13px}.track .meta{text-align:right;font-size:12px;color:#d5d9dd}
+footer{color:#7f878f;font-size:11px;text-align:center;margin-top:24px}
+@media(max-width:780px){.grid{grid-template-columns:1fr}.top{align-items:flex-start}.stats{grid-template-columns:repeat(3,1fr)}.track{grid-template-columns:24px 1fr 48px 48px}.track .meta:last-child{display:none}}
+</style>
+</head>
+<body><main class="wrap">
+<header class="top"><div><div class="brand">MONDO<span>.</span></div><div class="sub">PLAYLIST ANALYSER / DJ SET BUILDER</div></div><div class="pill">BETA · LOCAL TOOL</div></header>
+<h1>Build the <em>dancefloor journey.</em></h1>
+<p class="lead">Bring in your tracks, add BPM and Camelot keys, then let MONDO find a smoother running order — from warm-up to hands-in-the-air to full acid-rave territory.</p>
+<div class="grid">
+<section>
+<div class="card">
+<h2>01 / Import your playlist</h2>
+<label>Spotify playlist link (saved as your set reference)</label><input id="spotify" placeholder="https://open.spotify.com/playlist/…">
+<div class="notice">Paste a public Spotify playlist link (up to 100 tracks), then tap the TuneBad button below. MONDO will open TuneBad inside the app, run its playlist analysis, and bring the results back here. No Spotify login or paid API is needed.</div>
+<label>Paste tracks — one per line: Track name - Artist, BPM, Camelot key, Energy (1–10)</label>
+<textarea id="paste" placeholder="Children - Robert Miles, 137, 8A, 8&#10;Insomnia - Faithless, ност, 7A, 9"></textarea>
+<div class="row" style="margin-top:10px"><button id="add">Add pasted tracks</button><label class="filebtn secondary" style="text-align:center">Import CSV<input id="csv" type="file" accept=".csv,.txt" hidden></label></div>
+<p class="small">CSV columns supported: title, artist, bpm, key (Camelot such as 8A), energy. You can also edit every value after import.</p>
+</div>
+<div class="card">
+<h2>02 / Free BPM & Camelot analysis</h2>
+<p class="small">MONDO uses TuneBad's free playlist analyser for BPM, musical key and Camelot. No paid API key or subscription.</p>
+<div class="row" style="margin-top:10px"><button id="openTuneBad">Analyse Spotify playlist with TuneBad</button><button class="secondary" id="copySpotify">Copy playlist link</button></div>
+<p class="small" style="margin-top:10px">MONDO hands your public playlist link to TuneBad, then imports its BPM, key and Camelot results back into this running order. TuneBad supports up to 100 tracks.</p>
+<div class="notice">TuneBad measures BPM and musical key. It does not return a true DJ energy score, so Energy starts at 5 and can be adjusted in MONDO.</div>
+<p class="small" id="apiStatus">Ready. Paste your playlist link above to get started.</p>
+</div>
+<div class="card">
+<h2>03 / Set direction</h2>
+<div class="row"><div><label>Journey style</label><select id="style"><option value="balanced">MONDO journey — balanced build</option><option value="uplifting">Uplifting trance / euphoria</option><option value="acid">Acid rave / peak-time</option><option value="warmup">Warm-up / gradual build</option></select></div><div><label>Target BPM</label><select id="target"><option value="any">Use the tracks' natural tempo</option><option>135–145</option><option>140–150</option><option>130–140</option></select></div></div>
+<div class="row" style="margin-top:14px"><button id="optimise">Optimise running order</button><button class="secondary" id="export">Export CSV</button></div>
+<p class="small" id="status">Add at least two tracks to begin.</p>
+</div>
+</section>
+<aside>
+<div class="card"><h2>04 / Set overview</h2><div class="stats"><div class="stat"><b id="count">0</b><span>TRACKS</span></div><div class="stat"><b id="duration">0m</b><span>DURATION*</span></div><div class="stat"><b id="avg">—</b><span>AVG BPM</span></div></div><p class="small" style="margin-top:12px">*Duration is estimated at 5 minutes per track until track lengths are imported.</p></div>
+<div class="card"><h2>05 / Energy curve</h2><div id="curve" class="small">Your set's energy progression will appear here.</div></div>
+<div class="card"><h2>06 / Harmonic mixing reminder</h2><p class="small">Strong Camelot neighbours: same key (e.g. 8A → 8A), ±1 number in the same letter (8A → 9A), or relative major/minor (8A → 8B). Treat this as a guide — phrasing, basslines and ears still win.</p></div>
+</aside>
+</div>
+<div class="card"><div class="row" style="justify-content:space-between"><h2>07 / Your running order</h2><span class="tag" id="orderlabel">ORIGINAL ORDER</span></div><div class="tablewrap"><table><thead><tr><th>#</th><th>Track</th><th>Artist</th><th>BPM</th><th>Camelot</th><th>Energy</th><th></th></tr></thead><tbody id="tbody"><tr><td colspan="7" class="small">Your tracks will appear here.</td></tr></tbody></table></div></div>
+<footer>MONDO Playlist Analyser · Free TuneBad CSV workflow · Your playlist data stays on this device</footer>
+</main>
 <script>
-let engine=null, ready=false;
-const $=id=>document.getElementById(id);
-function say(s){$('status').textContent=s}
-const camelot={
- 'C major':'8B','G major':'9B','D major':'10B','A major':'11B','E major':'12B','B major':'1B','F# major':'2B','C# major':'3B','G# major':'4B','D# major':'5B','A# major':'6B','F major':'7B',
- 'A minor':'8A','E minor':'9A','B minor':'10A','F# minor':'11A','C# minor':'12A','G# minor':'1A','D# minor':'2A','A# minor':'3A','F minor':'4A','C minor':'5A','G minor':'6A','D minor':'7A'
-};
-async function init(){
- try{
-  if(typeof Essentia==='undefined'||typeof EssentiaWASM==='undefined') throw new Error('Essentia files did not load. Check your internet connection and reopen MONDO.');
-  engine=new Essentia(EssentiaWASM);
-  ready=true;say('Essentia engine ready. Select your audio files.');
- }catch(e){say('Engine error: '+e.message)}
-}
-function toArray(vec){if(vec&&typeof vec.toArray==='function')return vec.toArray();return Array.from(vec||[])}
-async function analyse(file){
- const bytes=await file.arrayBuffer();
- const ctx=new (window.AudioContext||window.webkitAudioContext)();
- const buffer=await ctx.decodeAudioData(bytes);
- const mono=engine.audioBufferToMonoSignal(buffer);
- const signal=toArray(mono);
- if(signal.length<buffer.sampleRate*15) throw new Error('Track is too short for reliable analysis');
- const rhythm=engine.RhythmExtractor2013(mono,208,'multifeature',40);
- const tonal=engine.KeyExtractor(mono,true,4096,4096,12,3500,60,25,0.2,'bgate',buffer.sampleRate);
- const bpm=Number(rhythm.bpm);
- const key=String(tonal.key||'');
- const scale=String(tonal.scale||'');
- const camel=camelot[(key+' '+scale)]||'—';
- let sum=0;for(let i=0;i<signal.length;i+=8)sum+=signal[i]*signal[i];
- const rms=Math.sqrt(sum/Math.ceil(signal.length/8));
- const energy=Math.max(1,Math.min(10,Math.round((20*Math.log10(Math.max(rms,0.00001))+45)/4.5)));
- mono.delete?.();ctx.close();
- return {bpm:Number.isFinite(bpm)?bpm.toFixed(1):'—',key:key+' '+scale,camelot:camel,energy};
-}
-$('pick').addEventListener('click',()=>$('files').click());
-$('files').addEventListener('change',async e=>{
- const files=Array.from(e.target.files||[]);if(!files.length)return;
- if(!ready){say('Essentia is not ready yet.');return}
- $('results').innerHTML='';
- for(let i=0;i<files.length;i++){
-  const f=files[i];say('Analysing '+(i+1)+' of '+files.length+': '+f.name);
-  try{
-   const r=await analyse(f);
-   const card=document.createElement('div');card.className='track';
-   const b=document.createElement('b');b.textContent=f.name;card.appendChild(b);
-   const m=document.createElement('div');m.className='metrics';
-   m.textContent='BPM: '+r.bpm+'   •   Key: '+r.key+'   •   Camelot: '+r.camelot+'   •   Energy: '+r.energy+'/10';
-   card.appendChild(m);$('results').appendChild(card);
-  }catch(err){
-   const card=document.createElement('div');card.className='track';card.textContent=f.name+' — '+err.message;$('results').appendChild(card);
-  }
- }
- say('Finished. '+files.length+' file(s) processed locally by Essentia.');
- e.target.value='';
-});
-init();
+const $=id=>document.getElementById(id);let tracks=[];
+function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function keyNorm(k){return String(k||'').trim().toUpperCase().replace(/\s/g,'');}
+function parseLine(line){let p=line.split(',').map(x=>x.trim());if(p.length<2)return null;let first=p[0].split(/\s+-\s+/);let title=first[0]||'',artist=first.slice(1).join(' - ')||p[1]||'';let offset=first.length>1?1:1;if(first.length===1){title=p[0];artist=p[1]||'';}let bpm=Number(p[2]||p[1]);if(first.length===1){bpm=Number(p[2]);}let key=keyNorm(p[first.length>1?3:3]||p[2]||'');let energy=Number(p[first.length>1?4:4]||5);if(!Number.isFinite(bpm)||bpm<50||bpm>220){bpm=Number(p[1]);key=keyNorm(p[2]||'');energy=Number(p[3]||5);if(first.length>1)bpm=Number(p[1]);}return {title,artist,bpm:Number.isFinite(bpm)?bpm:null,key,energy:Number.isFinite(energy)?Math.max(1,Math.min(10,energy)):5};}
+function parseSimple(line){let p=line.split(',').map(x=>x.trim());let m=p[0].match(/^(.*?)\s+-\s+(.*)$/);return {title:m?m[1]:p[0],artist:m?m[2]:(p[1]||''),bpm:Number(p[1+(m?0:1)])||null,key:keyNorm(p[2+(m?0:1)]||''),energy:Number(p[3+(m?0:1)]||5)}}
+function moveTrack(from,to){if(to<0||to>=tracks.length||from===to)return;let [t]=tracks.splice(from,1);tracks.splice(to,0,t);render();}
+function render(){ $('count').textContent=tracks.length;let totalMs=tracks.reduce((n,t)=>n+(Number(t.duration)||0),0);$('duration').textContent=totalMs?Math.round(totalMs/60000)+'m':Math.round(tracks.length*5)+'m';let bs=tracks.map(t=>t.bpm).filter(Boolean);$('avg').textContent=bs.length?Math.round(bs.reduce((a,b)=>a+b,0)/bs.length):'—';$('tbody').innerHTML=tracks.length?tracks.map((t,i)=>`<tr draggable="true" data-row="${i}" style="cursor:grab"><td><div style="display:flex;flex-direction:column;gap:3px;align-items:center"><b>${i+1}</b><button class="secondary" data-up="${i}" title="Move up" style="padding:3px 8px">↑</button><button class="secondary" data-down="${i}" title="Move down" style="padding:3px 8px">↓</button></div></td><td><b>${esc(t.title)}</b></td><td>${esc(t.artist)}</td><td><input aria-label="BPM" type="number" min="50" max="220" value="${t.bpm??''}" data-i="${i}" data-f="bpm"></td><td><input aria-label="Camelot key" value="${esc(t.key)}" data-i="${i}" data-f="key"></td><td><input aria-label="Energy" type="number" min="1" max="10" value="${t.energy}" data-i="${i}" data-f="energy"></td><td><button class="secondary" data-del="${i}" title="Remove track">×</button></td></tr>`).join(''):'<tr><td colspan="7" class="small">Your tracks will appear here.</td></tr>';document.querySelectorAll('[data-i]').forEach(el=>el.onchange=()=>{let t=tracks[+el.dataset.i];t[el.dataset.f]=el.dataset.f==='key'?keyNorm(el.value):Number(el.value)||null;render();});document.querySelectorAll('[data-del]').forEach(el=>el.onclick=()=>{tracks.splice(+el.dataset.del,1);render()});document.querySelectorAll('[data-up]').forEach(el=>el.onclick=()=>moveTrack(+el.dataset.up,+el.dataset.up-1));document.querySelectorAll('[data-down]').forEach(el=>el.onclick=()=>moveTrack(+el.dataset.down,+el.dataset.down+1));let dragging=null;document.querySelectorAll('#tbody tr[data-row]').forEach(row=>{row.ondragstart=e=>{dragging=+row.dataset.row;e.dataTransfer.effectAllowed='move';e.dataTransfer.setData('text/plain',String(dragging));};row.ondragover=e=>{e.preventDefault();e.dataTransfer.dropEffect='move';};row.ondrop=e=>{e.preventDefault();let from=dragging??Number(e.dataTransfer.getData('text/plain'));moveTrack(from,+row.dataset.row);dragging=null;};row.ondragend=()=>{dragging=null;};});drawCurve();}
+function drawCurve(){if(!tracks.length){$('curve').textContent='Your set’s energy progression will appear here.';return;}$('curve').innerHTML=tracks.map((t,i)=>`<div style="display:flex;align-items:center;gap:8px;margin:8px 0"><span style="width:20px;color:#ff9a43">${i+1}</span><div class="bar" style="flex:1"><i style="width:${Math.max(5,t.energy*10)}%"></i></div><span style="width:24px;text-align:right">${t.energy}</span></div>`).join('')}
+$('add').onclick=()=>{let lines=$('paste').value.split(/\n/).map(x=>x.trim()).filter(Boolean);let before=tracks.length;lines.forEach(l=>{let t=parseSimple(l);if(t.title)tracks.push(t)});render();$('status').textContent=`Added ${tracks.length-before} track(s). Check BPM and Camelot values before optimising.`;$('paste').value='';};
+function parseCSV(text){let rows=[],row=[],cell='',quoted=false;for(let i=0;i<text.length;i++){let c=text[i],n=text[i+1];if(c==='"'&&quoted&&n==='"'){cell+='"';i++;}else if(c==='"'){quoted=!quoted;}else if(c===','&&!quoted){row.push(cell);cell='';}else if((c==='\n'||c==='\r')&&!quoted){if(c==='\r'&&n==='\n')i++;row.push(cell);if(row.some(v=>v.trim()))rows.push(row);row=[];cell='';}else cell+=c;}row.push(cell);if(row.some(v=>v.trim()))rows.push(row);return rows;}
+function parseCSV(text){let rows=[],row=[],cell='',quoted=false;for(let i=0;i<text.length;i++){let c=text[i],n=text[i+1];if(c==='"'&&quoted&&n==='"'){cell+='"';i++;}else if(c==='"'){quoted=!quoted;}else if(c===','&&!quoted){row.push(cell);cell='';}else if((c==='\n'||c==='\r')&&!quoted){if(c==='\r'&&n==='\n')i++;row.push(cell);if(row.some(v=>v.trim()))rows.push(row);row=[];cell='';}else cell+=c;}row.push(cell);if(row.some(v=>v.trim()))rows.push(row);return rows;}
+function spotifyTrackId(value){let v=String(value||'').trim();if(!v)return '';let m=v.match(/track[:/]([A-Za-z0-9]{22})/);if(m)return m[1];return /^[A-Za-z0-9]{22}$/.test(v)?v:'';}
+$('openTuneBad').onclick=()=>{const link=$('spotify').value.trim();if(!/^https?:\\/\\/(open\\.)?spotify\\.com\\/playlist\\/[A-Za-z0-9]+/i.test(link)){ $('apiStatus').textContent='Paste a valid public Spotify playlist link first.'; $('spotify').focus(); return;} if(window.MondoBridge&&MondoBridge.openTuneBad){$('apiStatus').textContent='Opening TuneBad and starting playlist analysis…';MondoBridge.openTuneBad(link);}else{$('apiStatus').textContent='This direct import works in the MONDO Android app. On the website, use TuneBad then import its CSV.';window.open('https://www.tunebad.com/playlist-analyzer','_blank');}};
+$('copySpotify').onclick=async()=>{const value=$('spotify').value.trim();if(!value){$('apiStatus').textContent='First paste your Spotify playlist link into the box in section 01.';$('spotify').focus();return;}try{if(navigator.clipboard&&window.isSecureContext){await navigator.clipboard.writeText(value);}else{const input=$('spotify');input.focus();input.select();const ok=document.execCommand('copy');if(!ok)throw new Error('Copy unavailable');} $('apiStatus').textContent='Spotify playlist link copied. Open TuneBad and paste it there.';}catch(e){$('spotify').focus();$('spotify').select();$('apiStatus').textContent='Your link is selected. Tap and hold the link, then choose Copy.';}};
+window.receiveTuneBadData=function(rows){try{const data=typeof rows==='string'?JSON.parse(rows):rows;if(!Array.isArray(data)||!data.length)throw new Error('No track rows were returned.');const imported=data.map(x=>({title:String(x.title||x.track||x.name||'Unknown track'),artist:String(x.artist||x.artists||''),bpm:Number(x.bpm)||null,key:keyNorm(x.camelot||x.key||''),energy:5,duration:Number(x.duration)||0})).filter(x=>x.title);if(!imported.length)throw new Error('TuneBad returned no readable tracks.');tracks=imported;render();$('apiStatus').textContent='Imported '+tracks.length+' tracks from TuneBad. BPM and Camelot are ready; set energy levels to taste.';$('status').textContent='TuneBad import complete. Optimise your running order when ready.';document.querySelector('#tbody').scrollIntoView({behavior:'smooth',block:'start'});}catch(e){$('apiStatus').textContent='Import problem: '+e.message;}};
+$('optimise').onclick=optimise;
+$('export').onclick=()=>{if(!tracks.length){$('status').textContent='Nothing to export yet.';return;}let rows=[['Position','Title','Artist','BPM','Camelot','Energy'],...tracks.map((t,i)=>[i+1,t.title,t.artist,t.bpm||'',t.key,t.energy])];let csv=rows.map(r=>r.map(v=>'"'+String(v??'').replace(/"/g,'""')+'"').join(',')).join('\n');let a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download='MONDO_optimised_set.csv';a.click();URL.revokeObjectURL(a.href);};
 </script></body></html>
