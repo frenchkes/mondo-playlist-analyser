@@ -19,6 +19,19 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
       - name: Build debug APK
         run: gradle assembleDebug
+      - name: Verify APK signature and package metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK="app/build/outputs/apk/debug/app-debug.apk"
+          BUILD_TOOLS="$(ls -1 "$ANDROID_HOME/build-tools" | sort -V | tail -n 1)"
+          APKSIGNER="$ANDROID_HOME/build-tools/$BUILD_TOOLS/apksigner"
+          AAPT="$ANDROID_HOME/build-tools/$BUILD_TOOLS/aapt"
+          test -s "$APK"
+          "$APKSIGNER" verify --verbose --print-certs "$APK"
+          "$AAPT" dump badging "$APK" | tee /tmp/mondo-badging.txt
+          grep -q "package: name='com.mondo.dj'" /tmp/mondo-badging.txt
+          grep -q "sdkVersion:'26'" /tmp/mondo-badging.txt
       - uses: actions/upload-artifact@v4
         with:
           name: MONDO-debug-apk
