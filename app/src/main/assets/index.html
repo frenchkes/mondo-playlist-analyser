@@ -22,6 +22,14 @@ button,.filebtn{background:var(--orange);color:#17191c;border:0;border-radius:9p
 .tracklist{display:flex;flex-direction:column;gap:7px}.track{display:grid;grid-template-columns:30px 1fr 58px 58px 58px;gap:8px;align-items:center;background:#111416;border:1px solid #30363c;border-radius:9px;padding:9px}.num{color:var(--orange);font-weight:800}.track small{display:block;color:var(--muted)}.track strong{font-size:13px}.track .meta{text-align:right;font-size:12px;color:#d5d9dd}
 footer{color:#7f878f;font-size:11px;text-align:center;margin-top:24px}
 @media(max-width:780px){.grid{grid-template-columns:1fr}.top{align-items:flex-start}.stats{grid-template-columns:repeat(3,1fr)}.track{grid-template-columns:24px 1fr 48px 48px}.track .meta:last-child{display:none}}
+
+#status{display:block;margin:14px 0 0;padding:13px 15px;border-radius:10px;background:#2a2119;border:2px solid #b56b27;color:#ffd1a6;font-size:14px;font-weight:800;line-height:1.5}
+#status.status-warning{background:#351b1d;border-color:#ff5555;color:#ffd0d0}
+#status.status-success{background:#142b20;border-color:#43b879;color:#bff5d5}
+#status.status-info{background:#2a2119;border-color:#b56b27;color:#ffd1a6}
+.optimise-reminder{margin:12px 0 0;padding:12px 14px;border:2px solid #ff5555;background:#351b1d;color:#ffd0d0;border-radius:10px;font-size:13px;font-weight:800;line-height:1.5}
+.optimise-reminder strong{color:#fff;text-decoration:underline}
+
 input.invalid-field{border:1px solid #ff5555!important;background:#351b1d!important;color:#fff}input.invalid-field::placeholder{color:#ff8b8b;opacity:1}
 </style>
 </head>
@@ -59,7 +67,7 @@ input.invalid-field{border:1px solid #ff5555!important;background:#351b1d!import
 <p class="small" id="saveStatus">Saved sets stay on this device in MONDO's local storage.</p>
 </div>
 <p class="small">Energy scale: 1–3 warm-up · 4–5 building · 6–7 driving · 8–9 peak-time · 10 full rave. Estimates use tempo as a starting clue; adjust them to match the actual record.</p>
-<p class="small" id="status">Add at least two tracks to begin.</p>
+<p class="small" id="status">READY: Add your track details, then press <strong>Optimise running order</strong>. MONDO will confirm below whether the order has changed.</p><p class="optimise-reminder">IMPORTANT: <strong>Every track must have valid BPM, Camelot key AND energy values.</strong> Any red field marked “Add manually” must be completed first. If even one value is missing or invalid, <strong>MONDO WILL NOT OPTIMISE THE RUNNING ORDER.</strong></p>
 </div>
 </section>
 <aside>
@@ -108,10 +116,10 @@ function camelotDistance(a,b){
  return x[2]===y[2]?ring:(ring===0?1.5:99);
 }
 function optimise(){
- if(!tracks.length){$('status').textContent='No tracks loaded yet. Import tracks from TuneBad first.';return;}
+ if(!tracks.length){$('status').className='small status-warning';$('status').textContent='NOT OPTIMISED. Import your tracks first.';return;}
  const incomplete=tracks.filter(trackNeedsManual);
- if(incomplete.length){$('status').textContent=incomplete.length+' track(s) have missing or invalid BPM, Camelot or energy values. Fill every red box marked Add manually, then press Optimise running order again.';render();return;}
- if(tracks.length===1){$('status').textContent='Only one track loaded. Add at least one more to optimise.';return;}
+ if(incomplete.length){$('status').className='small status-warning';$('status').innerHTML='<strong>NOT OPTIMISED.</strong> '+incomplete.length+' track(s) still have missing or invalid values. Complete every red “Add manually” field — BPM, Camelot key and energy — then press Optimise running order again.';render();return;}
+ if(tracks.length===1){$('status').className='small status-warning';$('status').textContent='NOT OPTIMISED. Add at least one more track.';return;}
  const target=$('target').value;
  const range=target==='any'?null:(target==='141+'?[141,999]:target.split('-').map(Number));
  const style=$('style').value;
@@ -162,7 +170,7 @@ function optimise(){
  $('orderlabel').textContent='OPTIMISED ORDER';
  const inRange=range?tracks.filter(t=>bpm(t)>=range[0]&&bpm(t)<=range[1]).length:tracks.length;
  const outside=tracks.length-inRange;
- $('status').textContent='Optimised for '+styleDescriptions[style].toLowerCase()+' '+(range?('Target BPM '+target+': '+inRange+' in-range track(s) placed first; '+outside+' outside the range placed afterwards. '):'Using natural BPM. ')+'Your new running order is shown below.';
+ $('status').className='small status-success';$('status').innerHTML='<strong>✓ ORDER SUCCESSFULLY OPTIMISED.</strong> '+styleDescriptions[style]+' '+(range?('Target BPM '+target+': '+inRange+' in-range track(s) placed first; '+outside+' outside the range placed afterwards. '):'Using natural BPM. ')+'Your new running order is shown below.';
 }
 $('estimateEnergy').onclick=()=>{if(!tracks.length){$('status').textContent='Import your TuneBad tracks first.';return;}tracks=tracks.map(t=>({...t,energy:estimateEnergy(Number(t.bpm)||null,$('style').value)}));render();$('status').textContent='Estimated energy for '+tracks.length+' tracks from BPM and journey style. You can edit any score manually.';};
 $('style').addEventListener('change',()=>{updateStyleDescription();if(tracks.length)$('status').textContent='Journey style changed. Tap Estimate energy levels to refresh suggested scores, or keep your manual ratings.';});updateStyleDescription();
