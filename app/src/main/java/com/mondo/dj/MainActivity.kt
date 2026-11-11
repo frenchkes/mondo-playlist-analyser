@@ -95,8 +95,13 @@ class MainActivity : Activity() {
         fun openTuneBad(playlistUrl: String) {
             runOnUiThread {
                 pendingPlaylist = playlistUrl
-                tuneBadMode = true
-                web.loadUrl("https://www.tunebad.com/playlist-analyzer")
+                tuneBadMode = false
+                try {
+                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://www.tunebad.com/playlist-analyzer"))
+                    startActivity(intent)
+                } catch (e: Exception) {
+                    android.widget.Toast.makeText(this@MainActivity, "Could not open your browser. Please open TuneBad manually.", android.widget.Toast.LENGTH_LONG).show()
+                }
             }
         }
 
