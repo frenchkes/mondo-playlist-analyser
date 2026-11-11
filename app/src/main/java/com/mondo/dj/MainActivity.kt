@@ -18,6 +18,8 @@ import android.content.Intent
 import java.net.HttpURLConnection
 import java.net.URL
 import java.net.URLEncoder
+import java.text.Normalizer
+import java.util.Locale
 import java.io.OutputStreamWriter
 import org.json.JSONArray
 import org.json.JSONObject
@@ -92,15 +94,41 @@ class MainActivity : Activity() {
                     val missing = mutableListOf<String>()
                     for (i in 0 until tracks.length()) {
                         val track = tracks.getJSONObject(i)
-                        val title = track.optString("title")
-                        val artist = track.optString("artist")
+                        val title = track.optString("title").trim()
+                        val artist = track.optString("artist").trim()
                         val q = "track:" + title + if (artist.isNotBlank()) " artist:" + artist else ""
-                        val searchUrl = "https://api.spotify.com/v1/search?type=track&limit=1&q=" +
+                        val searchUrl = "https://api.spotify.com/v1/search?type=track&limit=10&q=" +
                             URLEncoder.encode(q, "UTF-8")
                         val search = spotifyRequest(searchUrl, "GET", token, null)
                         val items = search.optJSONObject("tracks")?.optJSONArray("items")
-                        if (items != null && items.length() > 0) uris.put(items.getJSONObject(0).getString("uri"))
-                        else missing.add(title + " - " + artist)
+                        val wantedTitle = normaliseMatchText(title)
+                        val wantedArtist = normaliseMatchText(artist)
+                        var matched: JSONObject? = null
+                        if (items != null) {
+                            for (j in 0 until items.length()) {
+                                val candidate = items.getJSONObject(j)
+                                val candidateTitle = normaliseMatchText(candidate.optString("name"))
+                                val candidateArtists = candidate.optJSONArray("artists")
+                                var artistMatches = artist.isBlank()
+                                if (candidateArtists != null) {
+                                    for (k in 0 until candidateArtists.length()) {
+                                        if (normaliseMatchText(candidateArtists.getJSONObject(k).optString("name")) == wantedArtist) {
+                                            artistMatches = true
+                                            break
+                                        }
+                                    }
+                                }
+                                if (candidateTitle == wantedTitle && artistMatches) {
+                                    matched = candidate
+                                    break
+                                }
+                            }
+                        }
+                        if (matched != null) {
+                            uris.put(matched.getString("uri"))
+                        } else {
+                            missing.add(title + " - " + artist)
+                        }
                     }
                     if (uris.length() == 0) throw Exception("No tracks could be matched to Spotify.")
                     val body = JSONObject().put("name", name).put("public", false)
@@ -130,6 +158,13 @@ class MainActivity : Activity() {
                     }
                 }
             }.start()
+        }
+
+        private fun normaliseMatchText(value: String): String {
+            val decomposed = Normalizer.normalize(value, Normalizer.Form.NFD)
+            return decomposed.replace("\\p{Mn}+".toRegex(), "")
+                .lowercase(Locale.ROOT)
+                .replace("[^a-z0-9]".toRegex(), "")
         }
 
         private fun spotifyRequest(url: String, method: String, token: String, body: JSONObject?): JSONObject {
