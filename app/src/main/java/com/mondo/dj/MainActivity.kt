@@ -12,11 +12,21 @@ import android.widget.TextView
 import android.graphics.Color
 import android.graphics.Typeface
 import android.view.View
+import android.net.Uri
+import android.content.SharedPreferences
+import java.net.HttpURLConnection
+import java.net.URL
+import java.net.URLEncoder
+import java.io.OutputStreamWriter
+import org.json.JSONArray
+import org.json.JSONObject
 
 class MainActivity : Activity() {
     private lateinit var web: WebView
     private var tuneBadMode = false
     private var pendingPlaylist = ""
+    private val spotifyRedirect = "https://glittering-kulfi-e8083b.netlify.app/callback"
+    private val spotifyPrefs by lazy { getSharedPreferences("mondo_spotify", MODE_PRIVATE) }
 
     inner class MondoBridge {
         @JavascriptInterface
@@ -26,6 +36,119 @@ class MainActivity : Activity() {
                 tuneBadMode = true
                 web.loadUrl("https://www.tunebad.com/playlist-analyzer")
             }
+        }
+
+        @JavascriptInterface
+        fun startSpotifyAuth(authUrl: String, verifier: String, state: String) {
+            spotifyPrefs.edit().putString("verifier", verifier).putString("state", state).apply()
+            runOnUiThread { web.loadUrl(authUrl) }
+        }
+
+        @JavascriptInterface
+        fun createSpotifyPlaylist(name: String, tracksJson: String) {
+            Thread {
+                try {
+                    val token = spotifyPrefs.getString("access_token", null)
+                        ?: throw Exception("Please connect to Spotify first.")
+                    val tracks = JSONArray(tracksJson)
+                    val uris = JSONArray()
+                    val missing = mutableListOf<String>()
+                    for (i in 0 until tracks.length()) {
+                        val track = tracks.getJSONObject(i)
+                        val title = track.optString("title")
+                        val artist = track.optString("artist")
+                        val q = "track:" + title + if (artist.isNotBlank()) " artist:" + artist else ""
+                        val searchUrl = "https://api.spotify.com/v1/search?type=track&limit=1&q=" +
+                            URLEncoder.encode(q, "UTF-8")
+                        val search = spotifyRequest(searchUrl, "GET", token, null)
+                        val items = search.optJSONObject("tracks")?.optJSONArray("items")
+                        if (items != null && items.length() > 0) uris.put(items.getJSONObject(0).getString("uri"))
+                        else missing.add(title + " - " + artist)
+                    }
+                    if (uris.length() == 0) throw Exception("No tracks could be matched to Spotify.")
+                    val body = JSONObject().put("name", name).put("public", false)
+                        .put("description", "Created by MONDO Playlist Analyser")
+                    val created = spotifyRequest("https://api.spotify.com/v1/me/playlists", "POST", token, body)
+                    val playlistId = created.getString("id")
+                    var offset = 0
+                    while (offset < uris.length()) {
+                        val batch = JSONArray()
+                        for (j in offset until minOf(offset + 100, uris.length())) batch.put(uris.getString(j))
+                        spotifyRequest("https://api.spotify.com/v1/playlists/$playlistId/items", "POST", token,
+                            JSONObject().put("uris", batch))
+                        offset += 100
+                    }
+                    val url = created.optJSONObject("external_urls")?.optString("spotify", "") ?: ""
+                    val message = if (missing.isEmpty()) "Playlist created with " + uris.length() + " tracks." else
+                        "Playlist created with " + uris.length() + " matched tracks. " + missing.size() + " could not be found."
+                    runOnUiThread {
+                        val safeUrl = JSONObject.quote(url)
+                        val safeMessage = JSONObject.quote(message)
+                        web.evaluateJavascript("window.onSpotifyPlaylistCreated($safeUrl,$safeMessage);", null)
+                    }
+                } catch (e: Exception) {
+                    runOnUiThread {
+                        val safe = JSONObject.quote(e.message ?: "Unknown Spotify error")
+                        web.evaluateJavascript("window.onSpotifyPlaylistError($safe);", null)
+                    }
+                }
+            }.start()
+        }
+
+        private fun spotifyRequest(url: String, method: String, token: String, body: JSONObject?): JSONObject {
+            val connection = URL(url).openConnection() as HttpURLConnection
+            connection.requestMethod = method
+            connection.setRequestProperty("Authorization", "Bearer $token")
+            connection.setRequestProperty("Content-Type", "application/json")
+            connection.connectTimeout = 20000
+            connection.readTimeout = 30000
+            if (body != null) {
+                connection.doOutput = true
+                OutputStreamWriter(connection.outputStream, Charsets.UTF_8).use { it.write(body.toString()) }
+            }
+            val code = connection.responseCode
+            val stream = if (code in 200..299) connection.inputStream else connection.errorStream
+            val text = stream?.bufferedReader()?.use { it.readText() } ?: "{}"
+            connection.disconnect()
+            if (code !in 200..299) throw Exception("Spotify API error $code: $text")
+            return JSONObject(text)
+        }
+
+        private fun exchangeSpotifyCode(code: String, state: String) {
+            Thread {
+                try {
+                    if (state != spotifyPrefs.getString("state", null)) throw Exception("Security check failed. Please reconnect.")
+                    val verifier = spotifyPrefs.getString("verifier", null) ?: throw Exception("Missing PKCE verifier. Please reconnect.")
+                    val connection = URL("https://accounts.spotify.com/api/token").openConnection() as HttpURLConnection
+                    connection.requestMethod = "POST"
+                    connection.doOutput = true
+                    connection.setRequestProperty("Content-Type", "application/x-www-form-urlencoded")
+                    val params = "client_id=a2d83e1dfcc74db5a310f73192ed01d2&grant_type=authorization_code" +
+                        "&code=" + URLEncoder.encode(code, "UTF-8") +
+                        "&redirect_uri=" + URLEncoder.encode(spotifyRedirect, "UTF-8") +
+                        "&code_verifier=" + URLEncoder.encode(verifier, "UTF-8")
+                    connection.outputStream.use { it.write(params.toByteArray(Charsets.UTF_8)) }
+                    val responseCode = connection.responseCode
+                    val stream = if (responseCode in 200..299) connection.inputStream else connection.errorStream
+                    val text = stream.bufferedReader().use { it.readText() }
+                    connection.disconnect()
+                    if (responseCode !in 200..299) throw Exception("Token exchange failed ($responseCode): $text")
+                    val token = JSONObject(text).getString("access_token")
+                    spotifyPrefs.edit().putString("access_token", token).remove("verifier").remove("state").apply()
+                    runOnUiThread {
+                        web.loadUrl("file:///android_asset/index.html")
+                        web.postDelayed({ web.evaluateJavascript("window.onSpotifyConnected && window.onSpotifyConnected();", null) }, 700)
+                    }
+                } catch (e: Exception) {
+                    runOnUiThread {
+                        web.loadUrl("file:///android_asset/index.html")
+                        web.postDelayed({
+                            val safe = JSONObject.quote(e.message ?: "Spotify authorisation failed")
+                            web.evaluateJavascript("window.onSpotifyAuthError($safe);", null)
+                        }, 700)
+                    }
+                }
+            }.start()
         }
 
         @JavascriptInterface
@@ -53,6 +176,24 @@ class MainActivity : Activity() {
         web.addJavascriptInterface(MondoBridge(), "MondoBridge")
         web.webChromeClient = WebChromeClient()
         web.webViewClient = object : WebViewClient() {
+            override fun shouldOverrideUrlLoading(view: WebView?, url: String?): Boolean {
+                if (url != null && url.startsWith(spotifyRedirect)) {
+                    val uri = Uri.parse(url)
+                    val code = uri.getQueryParameter("code")
+                    val state = uri.getQueryParameter("state") ?: ""
+                    val error = uri.getQueryParameter("error")
+                    if (code != null) exchangeSpotifyCode(code, state)
+                    else {
+                        web.loadUrl("file:///android_asset/index.html")
+                        web.postDelayed({
+                            val safe = JSONObject.quote(error ?: "Spotify login cancelled")
+                            web.evaluateJavascript("window.onSpotifyAuthError($safe);", null)
+                        }, 700)
+                    }
+                    return true
+                }
+                return false
+            }
             override fun onPageFinished(view: WebView?, url: String?) {
                 super.onPageFinished(view, url)
                 if (tuneBadMode && url != null && url.contains("tunebad.com/playlist-analyzer")) {
