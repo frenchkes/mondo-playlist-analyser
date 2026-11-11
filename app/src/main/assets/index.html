@@ -122,9 +122,17 @@ const $=id=>document.getElementById(id);let tracks=[];
   if(meta)meta.setAttribute('content',chosen==='light'?'#f2f3f5':'#17191c');
   if(button){button.textContent=chosen==='dark'?'☀️ Light mode':'🌙 Dark mode';button.setAttribute('aria-label','Switch to '+(chosen==='dark'?'light':'dark')+' mode');button.title='Switch to '+(chosen==='dark'?'light':'dark')+' mode';}
  }
- let saved='dark';try{saved=localStorage.getItem(key)||'dark';}catch(e){}
+ let saved='dark';
+ try{
+  if(window.MondoBridge&&typeof MondoBridge.getThemePreference==='function')saved=MondoBridge.getThemePreference()||'dark';
+  else saved=localStorage.getItem(key)||'dark';
+ }catch(e){try{saved=localStorage.getItem(key)||'dark';}catch(ignore){}}
  applyTheme(saved);
- if(button)button.addEventListener('click',()=>{const next=document.body.dataset.theme==='dark'?'light':'dark';applyTheme(next);try{localStorage.setItem(key,next);}catch(e){}});
+ if(button)button.addEventListener('click',()=>{
+  const next=document.body.dataset.theme==='dark'?'light':'dark';applyTheme(next);
+  try{if(window.MondoBridge&&typeof MondoBridge.setThemePreference==='function')MondoBridge.setThemePreference(next);else localStorage.setItem(key,next);}
+  catch(e){try{localStorage.setItem(key,next);}catch(ignore){}}
+ });
 })();
 
 const SPOTIFY_CLIENT_ID='a2d83e1dfcc74db5a310f73192ed01d2';
