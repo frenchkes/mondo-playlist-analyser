@@ -31,10 +31,31 @@ footer{color:#7f878f;font-size:11px;text-align:center;margin-top:24px}
 .optimise-reminder strong{color:#fff;text-decoration:underline}
 
 input.invalid-field{border:1px solid #ff5555!important;background:#351b1d!important;color:#fff}input.invalid-field::placeholder{color:#ff8b8b;opacity:1}
+
+/* MONDO light theme */
+body[data-theme="light"]{--bg:#f2f3f5;--panel:#ffffff;--panel2:#f5f6f7;--line:#d7dbe0;--text:#202329;--muted:#68717b;background:radial-gradient(circle at 85% 0,#ffe5cc 0,transparent 32%),var(--bg);color:var(--text)}
+body[data-theme="light"] .card{background:linear-gradient(145deg,#fff,#f7f8fa);border-color:#d7dbe0;box-shadow:0 8px 24px #25304012}
+body[data-theme="light"] label{color:#424a53}
+body[data-theme="light"] input,body[data-theme="light"] textarea,body[data-theme="light"] select{background:#fff;border-color:#cbd1d8;color:#202329}
+body[data-theme="light"] button.secondary,body[data-theme="light"] .sort-button{background:#edf0f3;color:#303740;border-color:#cbd1d8}
+body[data-theme="light"] .stat,body[data-theme="light"] .track{background:#f7f8fa;border-color:#d7dbe0}
+body[data-theme="light"] th,body[data-theme="light"] td{border-bottom-color:#e0e3e7}
+body[data-theme="light"] .notice{background:#fff4e9;border-color:#edc49e;color:#75451f}
+body[data-theme="light"] .tag{background:#fff0df;color:#9a4b0a}
+body[data-theme="light"] .artist,body[data-theme="light"] .track small{color:#68717b}
+body[data-theme="light"] .track .meta{color:#424a53}
+body[data-theme="light"] .bar{background:#e1e5e9}
+body[data-theme="light"] #status{background:#fff4e9;border-color:#d98a42;color:#75451f}
+body[data-theme="light"] #status.status-warning,body[data-theme="light"] .optimise-reminder{background:#fff0f0;border-color:#df5555;color:#922b2b}
+body[data-theme="light"] #status.status-success{background:#eaf8ef;border-color:#43a875;color:#17613b}
+body[data-theme="light"] input.invalid-field{background:#fff0f0!important;color:#922b2b!important}
+body[data-theme="light"] input.invalid-field::placeholder{color:#c44}
+body[data-theme="light"] .pill{background:#fff4e9}
+body[data-theme="light"] footer{color:#7b838c}
 </style>
 </head>
 <body><main class="wrap">
-<header class="top"><div><div class="brand">MONDO<span>.</span></div><div class="sub">PLAYLIST ANALYSER / DJ SET BUILDER</div></div><div class="pill">BETA · LOCAL TOOL</div></header>
+<header class="top"><div><div class="brand">MONDO<span>.</span></div><div class="sub">PLAYLIST ANALYSER / DJ SET BUILDER</div></div><div class="row" style="flex:0 0 auto;justify-content:flex-end;gap:9px"><div class="pill">BETA · LOCAL TOOL</div><button class="secondary" id="themeToggle" type="button" aria-label="Switch colour theme" title="Switch light or dark mode">☀️ Light mode</button></div></header>
 <h1>Build the <em>dancefloor journey.</em></h1>
 <p class="lead">Bring in your tracks, add BPM and Camelot keys, then let MONDO find a smoother running order — from warm-up to hands-in-the-air to absolute madness.</p>
 <div class="grid">
@@ -89,6 +110,22 @@ input.invalid-field{border:1px solid #ff5555!important;background:#351b1d!import
 </main>
 <script>
 const $=id=>document.getElementById(id);let tracks=[];
+// Light/dark appearance preference
+(function(){
+ const key='mondo_theme_preference_v1';
+ const button=document.getElementById('themeToggle');
+ function applyTheme(theme){
+  const chosen=theme==='light'?'light':'dark';
+  document.body.dataset.theme=chosen;
+  const meta=document.querySelector('meta[name="theme-color"]');
+  if(meta)meta.setAttribute('content',chosen==='light'?'#f2f3f5':'#17191c');
+  if(button){button.textContent=chosen==='dark'?'☀️ Light mode':'🌙 Dark mode';button.setAttribute('aria-label','Switch to '+(chosen==='dark'?'light':'dark')+' mode');button.title='Switch to '+(chosen==='dark'?'light':'dark')+' mode';}
+ }
+ let saved='dark';try{saved=localStorage.getItem(key)||'dark';}catch(e){}
+ applyTheme(saved);
+ if(button)button.addEventListener('click',()=>{const next=document.body.dataset.theme==='dark'?'light':'dark';applyTheme(next);try{localStorage.setItem(key,next);}catch(e){}});
+})();
+
 const SPOTIFY_CLIENT_ID='a2d83e1dfcc74db5a310f73192ed01d2';
 const SPOTIFY_REDIRECT_URI='https://glittering-kulfi-e8083b.netlify.app/callback';
 const SPOTIFY_SCOPES='playlist-modify-private';
