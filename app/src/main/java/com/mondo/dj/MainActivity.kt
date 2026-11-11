@@ -87,7 +87,8 @@ class MainActivity : Activity() {
 
         @JavascriptInterface
         fun isSpotifyConnected(): Boolean {
-            return !spotifyPrefs.getString("access_token", null).isNullOrBlank()
+            return !spotifyPrefs.getString("access_token", null).isNullOrBlank() &&
+                !spotifyPrefs.getString("refresh_token", null).isNullOrBlank()
         }
 
         @JavascriptInterface
@@ -100,8 +101,7 @@ class MainActivity : Activity() {
         fun createSpotifyPlaylist(name: String, tracksJson: String) {
             Thread {
                 try {
-                    val token = spotifyPrefs.getString("access_token", null)
-                        ?: throw Exception("Please connect to Spotify first.")
+                    val token = getFreshSpotifyAccessToken()
                     val tracks = JSONArray(tracksJson)
                     val uris = JSONArray()
                     val missing = mutableListOf<String>()
@@ -173,6 +173,44 @@ class MainActivity : Activity() {
             }.start()
         }
 
+        @Synchronized
+        private fun getFreshSpotifyAccessToken(): String {
+            val accessToken = spotifyPrefs.getString("access_token", null)
+                ?: throw Exception("Please connect to Spotify first.")
+            val refreshToken = spotifyPrefs.getString("refresh_token", null)
+                ?: throw Exception("Spotify needs reconnecting once. Tap CONNECT TO SPOTIFY and authorise MONDO again.")
+            val expiresAt = spotifyPrefs.getLong("expires_at", 0L)
+            if (System.currentTimeMillis() < expiresAt - 60_000L) return accessToken
+
+            val connection = URL("https://accounts.spotify.com/api/token").openConnection() as HttpURLConnection
+            connection.requestMethod = "POST"
+            connection.doOutput = true
+            connection.setRequestProperty("Content-Type", "application/x-www-form-urlencoded")
+            connection.connectTimeout = 20000
+            connection.readTimeout = 30000
+            val params = "client_id=a2d83e1dfcc74db5a310f73192ed01d2" +
+                "&grant_type=refresh_token" +
+                "&refresh_token=" + URLEncoder.encode(refreshToken, "UTF-8")
+            connection.outputStream.use { it.write(params.toByteArray(Charsets.UTF_8)) }
+            val responseCode = connection.responseCode
+            val stream = if (responseCode in 200..299) connection.inputStream else connection.errorStream
+            val responseText = stream?.bufferedReader()?.use { it.readText() } ?: "{}"
+            connection.disconnect()
+            if (responseCode !in 200..299) {
+                throw Exception("Spotify session expired. Tap CONNECT TO SPOTIFY and authorise MONDO again.")
+            }
+            val response = JSONObject(responseText)
+            val newAccessToken = response.getString("access_token")
+            val expiresIn = response.optLong("expires_in", 3600L)
+            val editor = spotifyPrefs.edit()
+                .putString("access_token", newAccessToken)
+                .putLong("expires_at", System.currentTimeMillis() + expiresIn * 1000L)
+            val rotatedRefreshToken = response.optString("refresh_token", "")
+            if (rotatedRefreshToken.isNotBlank()) editor.putString("refresh_token", rotatedRefreshToken)
+            editor.apply()
+            return newAccessToken
+        }
+
         private fun normaliseMatchText(value: String): String {
             val decomposed = Normalizer.normalize(value, Normalizer.Form.NFD)
             return decomposed.replace("\\p{Mn}+".toRegex(), "")
@@ -218,8 +256,16 @@ class MainActivity : Activity() {
                     val text = stream.bufferedReader().use { it.readText() }
                     connection.disconnect()
                     if (responseCode !in 200..299) throw Exception("Token exchange failed ($responseCode): $text")
-                    val token = JSONObject(text).getString("access_token")
-                    spotifyPrefs.edit().putString("access_token", token).remove("verifier").remove("state").apply()
+                    val tokenResponse = JSONObject(text)
+                    val token = tokenResponse.getString("access_token")
+                    val refreshToken = tokenResponse.optString("refresh_token", "")
+                    if (refreshToken.isBlank()) throw Exception("Spotify did not provide a refresh token. Please try connecting again.")
+                    val expiresIn = tokenResponse.optLong("expires_in", 3600L)
+                    spotifyPrefs.edit()
+                        .putString("access_token", token)
+                        .putString("refresh_token", refreshToken)
+                        .putLong("expires_at", System.currentTimeMillis() + expiresIn * 1000L)
+                        .remove("verifier").remove("state").apply()
                     runOnUiThread {
                         web.loadUrl("file:///android_asset/index.html")
                         web.postDelayed({ web.evaluateJavascript("window.onSpotifyConnected && window.onSpotifyConnected();", null) }, 700)
