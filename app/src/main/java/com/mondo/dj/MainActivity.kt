@@ -20,6 +20,9 @@ import java.net.URLEncoder
 import java.io.OutputStreamWriter
 import org.json.JSONArray
 import org.json.JSONObject
+import java.security.MessageDigest
+import java.security.SecureRandom
+import android.util.Base64
 
 class MainActivity : Activity() {
     private lateinit var web: WebView
@@ -29,6 +32,18 @@ class MainActivity : Activity() {
     private val spotifyPrefs by lazy { getSharedPreferences("mondo_spotify", MODE_PRIVATE) }
 
     inner class MondoBridge {
+        @JavascriptInterface
+        fun randomSpotifyString(length: Int): String {
+            val bytes = ByteArray(length.coerceIn(16, 64))
+            SecureRandom().nextBytes(bytes)
+            return bytes.joinToString("") { "%02x".format(it) }
+        }
+
+        @JavascriptInterface
+        fun createSpotifyChallenge(verifier: String): String {
+            val digest = MessageDigest.getInstance("SHA-256").digest(verifier.toByteArray(Charsets.US_ASCII))
+            return Base64.encodeToString(digest, Base64.URL_SAFE or Base64.NO_PADDING or Base64.NO_WRAP)
+        }
         @JavascriptInterface
         fun openTuneBad(playlistUrl: String) {
             runOnUiThread {
