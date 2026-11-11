@@ -365,83 +365,92 @@ class MainActivity : Activity() {
               if(window.__mondoTuneBadHelper) return;
               window.__mondoTuneBadHelper=true;
               const playlistUrl=$playlist;
-              const log=(msg)=>{try{console.log('[MONDO] '+msg)}catch(e){}};
+              const norm=s=>(s||'').toString().toLowerCase();
+              const label=e=>norm((e.innerText||e.textContent||'').trim());
+              const overlay=(message)=>{
+                let n=document.getElementById('mondo-tunebad-note');
+                if(!n){n=document.createElement('div');n.id='mondo-tunebad-note';n.style='position:fixed;z-index:2147483647;bottom:12px;left:4%;width:92%;padding:13px;background:#ff8a24;color:#17191c;border-radius:10px;font-weight:800;box-shadow:0 4px 18px #0008';document.body.appendChild(n);}
+                n.textContent='MONDO: '+message;
+              };
               function findInput(){
-                return Array.from(document.querySelectorAll('input')).find(el =>
-                  /spotify|youtube|playlist|link/i.test(
-                    (el.placeholder||'')+' '+(el.getAttribute('aria-label')||'')+' '+(el.name||'')
-                  )
-                ) || Array.from(document.querySelectorAll('input')).find(el=>el.type==='text' || !el.type);
+                const inputs=Array.from(document.querySelectorAll('input:not([type=file]),textarea'));
+                return inputs.find(el=>/spotify|youtube|playlist|link/i.test((el.placeholder||'')+' '+(el.getAttribute('aria-label')||'')+' '+(el.name||'')))
+                  || inputs.find(el=>el.type==='text'||el.tagName==='TEXTAREA');
               }
-              function fillAndSubmit(){
+              function findSubmit(){
+                const buttons=Array.from(document.querySelectorAll('button,[role=button],input[type=submit]'));
+                return buttons.find(b=>/analy[sz]e playlist|analy[sz]e/i.test(label(b))&&!b.disabled)
+                  || buttons.find(b=>/analy[sz]e playlist|analy[sz]e/i.test(label(b)));
+              }
+              let submitted=false;
+              function fillForm(){
+                if(submitted)return;
                 const input=findInput();
-                const button=Array.from(document.querySelectorAll('button')).find(b =>
-                  /analyze playlist/i.test((b.innerText||b.textContent||'').trim())
-                );
-                if(!input || !button){log('Waiting for TuneBad form');return false;}
-                // React-controlled inputs must be changed through the native setter.
-                const setter=Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set;
-                setter.call(input,playlistUrl);
-                input.dispatchEvent(new Event('input',{bubbles:true}));
-                input.dispatchEvent(new Event('change',{bubbles:true}));
-                input.dispatchEvent(new KeyboardEvent('keyup',{bubbles:true,key:'v'}));
-                log('Filled playlist input; waiting for validation');
-                let attempts=0;
-                const poll=setInterval(()=>{
-                  attempts++;
-                  const current=findInput();
-                  const submit=Array.from(document.querySelectorAll('button')).find(b =>
-                    /analyze playlist/i.test((b.innerText||b.textContent||'').trim())
-                  );
-                  if(current && current.value===playlistUrl && submit && !submit.disabled){
-                    clearInterval(poll);
-                    submit.click();
-                    log('Submitted TuneBad playlist');
-                    watchResults();
-                  } else if(attempts>30){
-                    clearInterval(poll);
-                    log('TuneBad did not enable Analyze Playlist; check link and page validation');
-                    const note=document.createElement('div');
-                    note.textContent='MONDO: The playlist link was filled, but TuneBad did not enable Analyze Playlist. Check that the playlist is public and the full link is valid.';
-                    note.style='position:fixed;z-index:2147483647;bottom:12px;left:4%;width:92%;padding:14px;background:#ff8a24;color:#111;border-radius:10px;font-weight:700';
-                    document.body.appendChild(note);
-                  }
-                },300);
-                return true;
-              }
-              function watchResults(){
-                const observer=new MutationObserver(()=>addImportButton());
-                observer.observe(document.body,{childList:true,subtree:true});
-                setInterval(addImportButton,1000);
-                addImportButton();
-              }
-              function addImportButton(){
-                const tables=Array.from(document.querySelectorAll('table'));
-                let selected=null;
-                for(const table of tables){const trs=Array.from(table.querySelectorAll('tr'));if(trs.length>1)selected=trs;}
-                const rows=selected;
-                if(!rows)return;
-                let button=document.getElementById('mondo-import-results');
-                if(!button){
-                  button=document.createElement('button');button.id='mondo-import-results';
-                  button.textContent='IMPORT RESULTS INTO MONDO';
-                  button.style='position:fixed;z-index:2147483647;bottom:18px;left:5%;width:90%;padding:17px;background:#ff8a24;color:#111;border:0;border-radius:12px;font-weight:900;font-size:16px;box-shadow:0 4px 18px #0008';
-                  button.onclick=function(){
-                    const heads=Array.from(rows[0].querySelectorAll('th,td')).map(x=>(x.innerText||x.textContent||'').trim().toLowerCase());
-                    const idx=(terms)=>heads.findIndex(h=>terms.some(t=>h.includes(t)));
-                    const out=rows.slice(1).map(tr=>{
-                      const cells=Array.from(tr.querySelectorAll('td,th')).map(x=>(x.innerText||x.textContent||'').trim());
-                      const val=(terms)=>{const i=idx(terms);return i>=0?(cells[i]||''):'';};
-                      return {title:val(['track','song','title','name'])||cells[0]||'',artist:val(['artist']),bpm:parseFloat(val(['bpm','tempo']).replace(/[^0-9.]/g,''))||null,key:val(['camelot'])||val(['key','tonality'])};
-                    }).filter(x=>x.title);
-                    if(!out.length){alert('No readable analysed tracks found yet.');return;}
-                    MondoBridge.importResults(JSON.stringify(out));
-                  };
-                  document.body.appendChild(button);
+                if(!input)return;
+                if(input.value!==playlistUrl){
+                  const proto=input.tagName==='TEXTAREA'?HTMLTextAreaElement.prototype:HTMLInputElement.prototype;
+                  const setter=Object.getOwnPropertyDescriptor(proto,'value')?.set;
+                  if(setter)setter.call(input,playlistUrl);else input.value=playlistUrl;
+                  input.dispatchEvent(new Event('input',{bubbles:true}));
+                  input.dispatchEvent(new Event('change',{bubbles:true}));
+                  input.dispatchEvent(new KeyboardEvent('keyup',{bubbles:true,key:'v'}));
+                }
+                const button=findSubmit();
+                if(button&&!button.disabled&&input.value===playlistUrl){
+                  submitted=true;
+                  button.click();
+                  overlay('Playlist submitted to TuneBad. Waiting for analysis results…');
+                  startResultWatcher();
                 }
               }
-              let tries=0;
-              const starter=setInterval(()=>{tries++;if(fillAndSubmit()||tries>20)clearInterval(starter);},500);
+              function readResults(){
+                const tables=Array.from(document.querySelectorAll('table'));
+                for(const table of tables){
+                  const rows=Array.from(table.querySelectorAll('tr'));
+                  if(rows.length<2)continue;
+                  const heads=Array.from(rows[0].querySelectorAll('th,td')).map(c=>label(c));
+                  const idx=(terms)=>heads.findIndex(h=>terms.some(t=>h===t||h.includes(t)));
+                  const ti=idx(['track','song','title','name']);
+                  const bi=idx(['bpm','tempo']);
+                  const ki=idx(['camelot','key','tonality']);
+                  if(ti<0||bi<0||ki<0)continue;
+                  const ai=idx(['artist','artists']);
+                  const out=rows.slice(1).map(tr=>{
+                    const cells=Array.from(tr.querySelectorAll('td,th')).map(c=>(c.innerText||c.textContent||'').trim());
+                    const get=i=>i>=0?(cells[i]||''):'';
+                    const camelot= get(idx(['camelot'])) || get(ki);
+                    return {title:get(ti),artist:get(ai),bpm:parseFloat(get(bi).replace(/[^0-9.]/g,''))||null,key:camelot,camelot:camelot};
+                  }).filter(x=>x.title&&x.bpm);
+                  if(out.length)return out;
+                }
+                return null;
+              }
+              let importAdded=false;
+              function startResultWatcher(){
+                const add=()=>{
+                  const results=readResults();
+                  if(!results)return;
+                  let button=document.getElementById('mondo-import-results');
+                  if(!button){
+                    button=document.createElement('button');button.id='mondo-import-results';
+                    button.textContent='IMPORT RESULTS INTO MONDO';
+                    button.style='position:fixed;z-index:2147483647;bottom:18px;left:5%;width:90%;padding:17px;background:#ff8a24;color:#111;border:0;border-radius:12px;font-weight:900;font-size:16px;box-shadow:0 4px 18px #0008';
+                    button.onclick=()=>{const latest=readResults();if(!latest||!latest.length){overlay('No analysed rows found yet. Wait for TuneBad to finish.');return;}MondoBridge.importResults(JSON.stringify(latest));};
+                    document.body.appendChild(button);
+                  }
+                  button.textContent='IMPORT '+results.length+' TRACKS INTO MONDO';
+                  importAdded=true;
+                  overlay('Analysis found. Tap the orange button to bring the results into MONDO.');
+                };
+                const observer=new MutationObserver(add);
+                observer.observe(document.documentElement,{childList:true,subtree:true,characterData:true});
+                add();
+              }
+              const observer=new MutationObserver(()=>{fillForm();});
+              observer.observe(document.documentElement,{childList:true,subtree:true});
+              let attempts=0;
+              const poll=setInterval(()=>{attempts++;fillForm();if(submitted||attempts>240){clearInterval(poll);if(!submitted)overlay('Could not find the playlist form. Paste the playlist link into TuneBad manually, then run the analysis.');}},500);
+              window.addEventListener('load',fillForm);
             })();
         """.trimIndent()
         web.evaluateJavascript(script, null)
