@@ -88,6 +88,7 @@ input.invalid-field{border:1px solid #ff5555!important;background:#351b1d!import
 <footer>MONDO Playlist Analyser · Free TuneBad CSV workflow · Your playlist data stays on this device</footer>
 </main>
 <script>
+const $=id=>document.getElementById(id);let tracks=[];
 const SPOTIFY_CLIENT_ID='a2d83e1dfcc74db5a310f73192ed01d2';
 const SPOTIFY_REDIRECT_URI='https://glittering-kulfi-e8083b.netlify.app/callback';
 const SPOTIFY_SCOPES='playlist-modify-private';
@@ -100,7 +101,7 @@ window.onSpotifyAuthError=function(message){$('spotifyExportStatus').textContent
 $('spotifyCreate').onclick=()=>{if(!tracks.length){$('spotifyExportStatus').textContent='Import tracks and optimise your running order first.';return;}const name=$('spotifyPlaylistName').value.trim();if(!name){$('spotifyExportStatus').textContent='Enter a name for your new playlist.';return;}if(!window.MondoBridge||!MondoBridge.createSpotifyPlaylist){$('spotifyExportStatus').textContent='Spotify export is only available in the MONDO Android app.';return;}const payload=tracks.map(t=>({title:t.title,artist:t.artist}));$('spotifyCreate').disabled=true;$('spotifyExportStatus').textContent='Finding your tracks on Spotify and creating the playlist…';MondoBridge.createSpotifyPlaylist(name,JSON.stringify(payload));};
 window.onSpotifyPlaylistCreated=function(url,message){$('spotifyCreate').disabled=false;$('spotifyExportStatus').innerHTML='<strong>'+message+'</strong> <a href="'+url+'" target="_blank" rel="noopener">Open playlist in Spotify</a>';};
 window.onSpotifyPlaylistError=function(message){$('spotifyCreate').disabled=false;$('spotifyExportStatus').textContent='Spotify export failed: '+message;};
-const $=id=>document.getElementById(id);let tracks=[];
+
 const sortDirections={bpm:1,key:1,energy:1};
 function sortTracks(field){if(field==='title'||field==='artist'){tracks.sort((a,b)=>String(a[field]||'').localeCompare(String(b[field]||''),undefined,{sensitivity:'base',numeric:true}));$('status').textContent=(field==='title'?'Tracks':'Artists')+' sorted alphabetically A–Z.';}else{const dir=sortDirections[field]||1;tracks.sort((a,b)=>{let av,bv;if(field==='key'){const ma=String(a.key||'').toUpperCase().match(/^(\d+)([AB])$/),mb=String(b.key||'').toUpperCase().match(/^(\d+)([AB])$/);av=ma?Number(ma[1])*2+(ma[2]==='B'?1:0):Infinity;bv=mb?Number(mb[1])*2+(mb[2]==='B'?1:0):Infinity;}else{av=Number(a[field]);bv=Number(b[field]);if(!Number.isFinite(av))av=Infinity;if(!Number.isFinite(bv))bv=Infinity;}return (av-bv)*dir;});$('status').textContent=(field==='bpm'?'BPM':field==='key'?'Camelot':'Energy')+' sorted '+(dir===1?'low to high':'high to low')+'.';sortDirections[field]=-dir;}render();}
 function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
