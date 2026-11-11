@@ -85,7 +85,7 @@ class MainActivity : Activity() {
                     }
                     val url = created.optJSONObject("external_urls")?.optString("spotify", "") ?: ""
                     val message = if (missing.isEmpty()) "Playlist created with " + uris.length() + " tracks." else
-                        "Playlist created with " + uris.length() + " matched tracks. " + missing.size() + " could not be found."
+                        "Playlist created with " + uris.length() + " matched tracks. " + missing.size + " could not be found."
                     runOnUiThread {
                         val safeUrl = JSONObject.quote(url)
                         val safeMessage = JSONObject.quote(message)
@@ -119,7 +119,7 @@ class MainActivity : Activity() {
             return JSONObject(text)
         }
 
-        private fun exchangeSpotifyCode(code: String, state: String) {
+        fun exchangeSpotifyCode(code: String, state: String) {
             Thread {
                 try {
                     if (state != spotifyPrefs.getString("state", null)) throw Exception("Security check failed. Please reconnect.")
@@ -187,7 +187,7 @@ class MainActivity : Activity() {
                     val code = uri.getQueryParameter("code")
                     val state = uri.getQueryParameter("state") ?: ""
                     val error = uri.getQueryParameter("error")
-                    if (code != null) exchangeSpotifyCode(code, state)
+                    if (code != null) MondoBridge().exchangeSpotifyCode(code, state)
                     else {
                         web.loadUrl("file:///android_asset/index.html")
                         web.postDelayed({
