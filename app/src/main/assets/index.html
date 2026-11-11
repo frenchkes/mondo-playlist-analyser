@@ -115,52 +115,54 @@ function optimise(){
  const target=$('target').value;
  const range=target==='any'?null:(target==='141+'?[141,999]:target.split('-').map(Number));
  const style=$('style').value;
- const pool=tracks.slice(),ordered=[];
- const energy=t=>Number(t.energy);
- const bpm=t=>Number(t.bpm);
+ const original=tracks.slice(),remaining=tracks.slice(),ordered=[];
+ const energy=t=>Number(t.energy),bpm=t=>Number(t.bpm);
  const desiredEnergy=progress=>{
-   if(style==='warmup')return 2+8*progress;
+   if(style==='warmup')return 2+5.5*progress;
    if(style==='progressive')return 1+9*progress;
-   if(style==='high')return 9;
+   if(style==='high')return 8.5+1.5*progress;
    return 5.5;
  };
- const bpmPenalty=t=>{
+ const rangePenalty=t=>{
    if(!range)return 0;
-   if(bpm(t)<range[0])return 1000+(range[0]-bpm(t))*4;
-   if(bpm(t)>range[1])return 1000+(bpm(t)-range[1])*4;
-   return -30;
+   if(bpm(t)>=range[0]&&bpm(t)<=range[1])return 0;
+   const distance=bpm(t)<range[0]?range[0]-bpm(t):bpm(t)-range[1];
+   return 10000+distance*100;
  };
- const transition=(a,b,progress)=>{
-   let s=camelotDistance(a.key,b.key)*1.5;
-   s+=Math.abs(bpm(a)-bpm(b))*0.15;
-   s+=Math.abs(energy(b)-desiredEnergy(progress))*10;
-   s+=bpmPenalty(b);
-   if(style==='high')s+=Math.max(0,energy(a)-energy(b))*1.5;
-   if(style==='warmup'||style==='progressive')s+=Math.max(0,energy(a)-energy(b))*0.8;
-   return s;
+ const energyPenalty=(t,progress)=>Math.abs(energy(t)-desiredEnergy(progress))*30;
+ const trendPenalty=(a,b)=>{
+   const drop=Math.max(0,energy(a)-energy(b));
+   if(style==='warmup')return drop*35;
+   if(style==='progressive')return drop*55;
+   if(style==='high')return drop*25;
+   return 0;
  };
- const firstTarget=desiredEnergy(0);
- pool.sort((a,b)=>{
-   const sa=Math.abs(energy(a)-firstTarget)*4+bpmPenalty(a);
-   const sb=Math.abs(energy(b)-firstTarget)*4+bpmPenalty(b);
+ const first=remaining.slice().sort((a,b)=>{
+   const sa=rangePenalty(a)+energyPenalty(a,0);
+   const sb=rangePenalty(b)+energyPenalty(b,0);
    return sa-sb;
- });
- let current=pool.shift();
- ordered.push(current);
- while(pool.length){
-   const progress=ordered.length/Math.max(1,tracks.length-1);
-   let best=0,bestScore=Infinity;
-   for(let i=0;i<pool.length;i++){
-     const score=transition(current,pool[i],progress);
-     if(score<bestScore){bestScore=score;best=i;}
+ })[0];
+ remaining.splice(remaining.indexOf(first),1);ordered.push(first);
+ while(remaining.length){
+   const progress=ordered.length/Math.max(1,original.length-1),current=ordered[ordered.length-1];
+   let bestIndex=0,bestScore=Infinity;
+   for(let i=0;i<remaining.length;i++){
+     const candidate=remaining[i];
+     const score=rangePenalty(candidate)
+       +energyPenalty(candidate,progress)
+       +trendPenalty(current,candidate)
+       +Math.abs(bpm(current)-bpm(candidate))*0.35
+       +camelotDistance(current.key,candidate.key)*1.2;
+     if(score<bestScore){bestScore=score;bestIndex=i;}
    }
-   current=pool.splice(best,1)[0];
-   ordered.push(current);
+   ordered.push(remaining.splice(bestIndex,1)[0]);
  }
  tracks.splice(0,tracks.length,...ordered);
  render();
  $('orderlabel').textContent='OPTIMISED ORDER';
- const inRange=range?tracks.filter(t=>bpm(t)>=range[0]&&bpm(t)<=range[1]).length:tracks.length;$('status').textContent='Optimised for '+styleDescriptions[style].toLowerCase()+' '+(range?('Target BPM '+target+': '+inRange+' of '+tracks.length+' tracks are in range. '):'Using natural BPM. ')+'Your new running order is shown below.';
+ const inRange=range?tracks.filter(t=>bpm(t)>=range[0]&&bpm(t)<=range[1]).length:tracks.length;
+ const outside=tracks.length-inRange;
+ $('status').textContent='Optimised for '+styleDescriptions[style].toLowerCase()+' '+(range?('Target BPM '+target+': '+inRange+' in-range track(s) placed first; '+outside+' outside the range placed afterwards. '):'Using natural BPM. ')+'Your new running order is shown below.';
 }
 $('estimateEnergy').onclick=()=>{if(!tracks.length){$('status').textContent='Import your TuneBad tracks first.';return;}tracks=tracks.map(t=>({...t,energy:estimateEnergy(Number(t.bpm)||null,$('style').value)}));render();$('status').textContent='Estimated energy for '+tracks.length+' tracks from BPM and journey style. You can edit any score manually.';};
 $('style').addEventListener('change',()=>{updateStyleDescription();if(tracks.length)$('status').textContent='Journey style changed. Tap Estimate energy levels to refresh suggested scores, or keep your manual ratings.';});updateStyleDescription();
