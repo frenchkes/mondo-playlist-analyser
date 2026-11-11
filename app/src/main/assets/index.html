@@ -68,7 +68,7 @@ input.invalid-field{border:1px solid #ff5555!important;background:#351b1d!import
 <div class="card"><h2>06 / Harmonic mixing reminder</h2><p class="small">Strong Camelot neighbours: same key (e.g. 8A → 8A), ±1 number in the same letter (8A → 9A), or relative major/minor (8A → 8B). Treat this as a guide — phrasing, basslines and ears still win.</p></div>
 </aside>
 </div>
-<div class="card"><div class="row" style="justify-content:space-between"><h2>07 / Your running order</h2><span class="tag" id="orderlabel">ORIGINAL ORDER</span></div><div class="tablewrap"><table><thead><tr><th>#</th><th>Track</th><th>Artist</th><th>BPM</th><th>Camelot</th><th>Energy</th><th></th></tr></thead><tbody id="tbody"><tr><td colspan="7" class="small">Your tracks will appear here.</td></tr></tbody></table></div></div>
+<div class="card"><div class="row" style="justify-content:space-between"><h2>07 / Your running order</h2><span class="tag" id="orderlabel">ORIGINAL ORDER</span></div><div class="tablewrap"><table><thead><tr><th>#</th><th>Track</th><th>Artist</th><th>BPM</th><th>Camelot</th><th>Energy</th><th></th></tr></thead><tbody id="tbody"><tr><td colspan="7" class="small">Your tracks will appear here.</td></tr></tbody></table></div><p class="small" style="color:#ff9a9a;margin:10px 2px">Any red box marked Add manually needs a valid value: BPM (up to 3 digits), Camelot (1A–12B) and energy (1–10). Enter the missing details, then press Optimise running order again.</p></div>
 <footer>MONDO Playlist Analyser · Free TuneBad CSV workflow · Your playlist data stays on this device</footer>
 </main>
 <script>
@@ -126,7 +126,7 @@ function optimise(){
    return s;
  };
  // Start with the lowest-energy suitable track for a natural build.
- pool.sort((a,b)=>energyTarget(a)-energyTarget(b));
+ pool.sort((a,b)=>style==='high'?energyTarget(b)-energyTarget(a):style==='balanced'?Math.abs(energyTarget(a)-5)-Math.abs(energyTarget(b)-5):energyTarget(a)-energyTarget(b));
  let current=pool.shift();ordered.push(current);
  while(pool.length){
    let best=0,bestScore=Infinity;
