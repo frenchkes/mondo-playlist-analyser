@@ -37,6 +37,21 @@ class MainActivity : Activity() {
 
     inner class MondoBridge {
         @JavascriptInterface
+        fun getSavedSetsJson(): String {
+            return appPrefs.getString("saved_sets", "{}") ?: "{}"
+        }
+
+        @JavascriptInterface
+        fun saveSavedSetsJson(json: String) {
+            try {
+                JSONObject(json)
+                appPrefs.edit().putString("saved_sets", json).apply()
+            } catch (_: Exception) {
+                // Preserve the last valid saved-set backup.
+            }
+        }
+
+        @JavascriptInterface
         fun getThemePreference(): String {
             return appPrefs.getString("theme", "dark") ?: "dark"
         }
