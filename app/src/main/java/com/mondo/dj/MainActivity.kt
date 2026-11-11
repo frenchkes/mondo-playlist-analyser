@@ -39,6 +39,11 @@ class MainActivity : Activity() {
         }
 
         @JavascriptInterface
+        fun isSpotifyConnected(): Boolean {
+            return !spotifyPrefs.getString("access_token", null).isNullOrBlank()
+        }
+
+        @JavascriptInterface
         fun startSpotifyAuth(authUrl: String, verifier: String, state: String) {
             spotifyPrefs.edit().putString("verifier", verifier).putString("state", state).apply()
             runOnUiThread { web.loadUrl(authUrl) }
