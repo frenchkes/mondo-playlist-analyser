@@ -158,7 +158,7 @@ function optimise(){
  tracks.splice(0,tracks.length,...ordered);
  render();
  $('orderlabel').textContent='OPTIMISED ORDER';
- $('status').textContent='Running order optimised using '+(range?('target BPM '+target):'natural BPM')+', Camelot compatibility and the '+styleDescriptions[style].toLowerCase();
+ const inRange=range?tracks.filter(t=>bpm(t)>=range[0]&&bpm(t)<=range[1]).length:tracks.length;$('status').textContent='Optimised for '+styleDescriptions[style].toLowerCase()+' '+(range?('Target BPM '+target+': '+inRange+' of '+tracks.length+' tracks are in range. '):'Using natural BPM. ')+'Your new running order is shown below.';
 }
 $('estimateEnergy').onclick=()=>{if(!tracks.length){$('status').textContent='Import your TuneBad tracks first.';return;}tracks=tracks.map(t=>({...t,energy:estimateEnergy(Number(t.bpm)||null,$('style').value)}));render();$('status').textContent='Estimated energy for '+tracks.length+' tracks from BPM and journey style. You can edit any score manually.';};
 $('style').addEventListener('change',()=>{updateStyleDescription();if(tracks.length)$('status').textContent='Journey style changed. Tap Estimate energy levels to refresh suggested scores, or keep your manual ratings.';});updateStyleDescription();
