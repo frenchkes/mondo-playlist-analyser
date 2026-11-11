@@ -9,8 +9,8 @@ android {
         applicationId = "com.kesmond.mondo"
         minSdk = 26
         targetSdk = 34
-        versionCode = 18
-        versionName = "1.9.6"
+        versionCode = 19
+        versionName = "1.9.7"
     }
     signingConfigs {
         getByName("debug") {
