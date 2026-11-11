@@ -104,9 +104,10 @@ function camelotDistance(a,b){
 }
 function optimise(){
  if(!tracks.length){$('status').textContent='No tracks loaded yet. Import tracks from TuneBad first.';return;}
+ const incomplete=tracks.filter(trackNeedsManual);if(incomplete.length){$('status').textContent=incomplete.length+' track(s) have missing or invalid BPM, Camelot or energy values. Fill every red box marked Add manually, then press Optimise running order again.';render();return;}
  if(tracks.length===1){$('status').textContent='Only one track loaded. Add at least one more to optimise.';return;}
  const target=$('target').value;
- const range=target==='any'?null:target.split('–').map(Number);
+ const range=target==='any'?null:(target==='141+'?[141,999]:target.split('-').map(Number));
  let pool=tracks.slice(),ordered=[];
  const style=$('style').value;
  const energyTarget=t=>Number(t.energy)||5;
@@ -116,8 +117,9 @@ function optimise(){
    const ka=camelotDistance(a.key,b.key);
    s+=ka<99?ka*3:12;
    if(a.bpm&&b.bpm)s+=Math.abs(a.bpm-b.bpm)*0.65;
-   if(style==='acid'||style==='uplifting')s-=Math.max(0,energyTarget(b)-energyTarget(a))*1.1;
-   else if(style==='warmup')s+=Math.max(0,energyTarget(b)-energyTarget(a))*-1.5;
+   if(style==='high')s-=Math.max(0,energyTarget(b)-energyTarget(a))*1.4;
+   else if(style==='warmup')s-=Math.max(0,energyTarget(b)-energyTarget(a))*1.2;
+   else if(style==='progressive')s-=Math.max(0,energyTarget(b)-energyTarget(a))*0.9;
    else s-=Math.max(0,energyTarget(b)-energyTarget(a))*0.35;
    if(range&&b.bpm&&(b.bpm<range[0]||b.bpm>range[1]))s+=18;
    return s;
