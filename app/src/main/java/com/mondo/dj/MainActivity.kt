@@ -33,8 +33,21 @@ class MainActivity : Activity() {
     private var pendingPlaylist = ""
     private val spotifyRedirect = "https://glittering-kulfi-e8083b.netlify.app/callback"
     private val spotifyPrefs by lazy { getSharedPreferences("mondo_spotify", MODE_PRIVATE) }
+    private val appPrefs by lazy { getSharedPreferences("mondo_app", MODE_PRIVATE) }
 
     inner class MondoBridge {
+        @JavascriptInterface
+        fun getThemePreference(): String {
+            return appPrefs.getString("theme", "dark") ?: "dark"
+        }
+
+        @JavascriptInterface
+        fun setThemePreference(theme: String) {
+            if (theme == "light" || theme == "dark") {
+                appPrefs.edit().putString("theme", theme).apply()
+            }
+        }
+
         @JavascriptInterface
         fun openSpotifyPlaylist(url: String) {
             runOnUiThread {
