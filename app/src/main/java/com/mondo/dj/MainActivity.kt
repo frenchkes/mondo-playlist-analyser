@@ -14,6 +14,7 @@ import android.graphics.Typeface
 import android.view.View
 import android.net.Uri
 import android.content.SharedPreferences
+import android.content.Intent
 import java.net.HttpURLConnection
 import java.net.URL
 import java.net.URLEncoder
@@ -32,6 +33,22 @@ class MainActivity : Activity() {
     private val spotifyPrefs by lazy { getSharedPreferences("mondo_spotify", MODE_PRIVATE) }
 
     inner class MondoBridge {
+        @JavascriptInterface
+        fun openSpotifyPlaylist(url: String) {
+            runOnUiThread {
+                val uri = Uri.parse(url)
+                try {
+                    val spotifyIntent = Intent(Intent.ACTION_VIEW, uri).setPackage("com.spotify.music")
+                    startActivity(spotifyIntent)
+                } catch (_: Exception) {
+                    try {
+                        startActivity(Intent(Intent.ACTION_VIEW, uri))
+                    } catch (_: Exception) {
+                        android.widget.Toast.makeText(this@MainActivity, "Could not open Spotify. Please check that Spotify is installed.", android.widget.Toast.LENGTH_LONG).show()
+                    }
+                }
+            }
+        }
         @JavascriptInterface
         fun randomSpotifyString(length: Int): String {
             val bytes = ByteArray(length.coerceIn(16, 64))
