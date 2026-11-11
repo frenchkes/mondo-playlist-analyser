@@ -109,6 +109,12 @@ class MainActivity : Activity() {
                         val track = tracks.getJSONObject(i)
                         val title = track.optString("title").trim()
                         val artist = track.optString("artist").trim()
+                        val originalUri = track.optString("spotifyUri").trim()
+                        if (originalUri.matches(Regex("^spotify:track:[A-Za-z0-9]{22}$"))) {
+                            // Prefer the exact recording from the user's Spotify export.
+                            uris.put(originalUri)
+                            continue
+                        }
                         val q = "track:" + title + if (artist.isNotBlank()) " artist:" + artist else ""
                         val searchUrl = "https://api.spotify.com/v1/search?type=track&limit=10&q=" +
                             URLEncoder.encode(q, "UTF-8")
